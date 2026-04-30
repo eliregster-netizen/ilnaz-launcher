@@ -1,0 +1,104 @@
+import { useState, useEffect } from 'react';
+import { Routes, Route, useLocation } from 'react-router-dom';
+import Sidebar from './components/Sidebar/Sidebar';
+import Auth from './components/Auth/Auth';
+import Home from './pages/Home';
+import Library from './pages/Library';
+import Profile from './pages/Profile';
+import Friends from './pages/Friends';
+import Chat from './pages/Chat';
+import UserProfile from './pages/UserProfile';
+import Admin from './pages/Admin';
+import {
+  getActiveUser,
+  getUserById,
+  isAdmin,
+  setStatus,
+  logout,
+} from './utils/auth';
+import './styles/global.css';
+
+const App = () => {
+  const [profile, setProfile] = useState(null);
+  const location = useLocation();
+  const isChatPage = location.pathname === '/chat';
+
+  useEffect(() => {
+    loadSession();
+    return () => {
+      if (profile) {
+        setStatus('offline').catch(() => {});
+      }
+    };
+  }, []);
+
+  const loadSession = async () => {
+    const user = getActiveUser();
+    if (user) {
+      const fresh = await getUserById(user.id);
+      if (fresh) {
+        setProfile(fresh);
+      } else {
+        setProfile(null);
+      }
+    }
+  };
+
+  const handleLogin = (user) => {
+    setProfile(user);
+  };
+
+  const handleLogout = () => {
+    logout();
+    setProfile(null);
+  };
+
+  const handleProfileUpdate = async (data) => {
+    setProfile(prev => ({ ...prev, ...data }));
+    const fresh = await getUserById(prev.id);
+    if (fresh) setProfile(fresh);
+  };
+
+  if (!profile) {
+    return (
+      <div className="app-container">
+        <Auth onLogin={handleLogin} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="app-container">
+      <div className="titlebar">
+        <div className="titlebar-drag">
+          <span className="titlebar-text">ILNAZ GAMING LAUNCHER</span>
+        </div>
+        <div className="titlebar-controls">
+          <button className="titlebar-btn" onClick={() => window.electron.minimizeApp()}>
+            <svg viewBox="0 0 12 12"><rect x="2" y="5" width="8" height="1" /></svg>
+          </button>
+          <button className="titlebar-btn" onClick={() => window.electron.maximizeApp()}>
+            <svg viewBox="0 0 12 12"><rect x="2" y="2" width="8" height="8" fill="none" /></svg>
+          </button>
+          <button className="titlebar-btn titlebar-close" onClick={() => window.electron.closeApp()}>
+            <svg viewBox="0 0 12 12"><path d="M2 2l8 8M10 2l-8 8" /></svg>
+          </button>
+        </div>
+      </div>
+      <Sidebar profile={profile} />
+      <main className={`main-content ${isChatPage ? 'no-padding' : ''}`}>
+        <Routes>
+          <Route path="/" element={<Home profile={profile} />} />
+          <Route path="/library" element={<Library profile={profile} />} />
+          <Route path="/profile" element={<Profile profile={profile} onUpdate={handleProfileUpdate} onLogout={handleLogout} />} />
+          <Route path="/profile/:userId" element={<UserProfile />} />
+          <Route path="/friends" element={<Friends />} />
+          <Route path="/chat" element={<Chat />} />
+          <Route path="/admin" element={<Admin />} />
+        </Routes>
+      </main>
+    </div>
+  );
+};
+
+export default App;

@@ -1,0 +1,52 @@
+.verify-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.verify-badge svg {
+  fill: white;
+  display: block;
+}
+
+.verify-badge.owner {
+  background: linear-gradient(135deg, #1da1f2, #0d8ddb);
+  box-shadow: 0 0 6px rgba(29, 161, 242, 0.5);
+}
+
+.verify-badge.admin {
+  background: linear-gradient(135deg, #a0a0a0, #707070);
+  box-shadow: 0 0 6px rgba(160, 160, 160, 0.5);
+}
+
+.verify-badge.size-sm {
+  width: 16px;
+  height: 16px;
+}
+
+.verify-badge.size-sm svg {
+  width: 10px;
+  height: 10px;
+}
+
+.verify-badge.size-md {
+  width: 20px;
+  height: 20px;
+}
+
+.verify-badge.size-md svg {
+  width: 13px;
+  height: 13px;
+}
+
+.verify-badge.size-lg {
+  width: 24px;
+  height: 24px;
+}
+
+.verify-badge.size-lg svg {
+  width: 16px;
+  height: 16px;
+}
