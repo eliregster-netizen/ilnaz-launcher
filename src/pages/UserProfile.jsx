@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getUserById, sendFriendRequest, removeFriend, getActiveUser, isAdmin } from '../utils/auth';
+import { getApiUrl } from '../config';
 import VerifyBadge from '../components/VerifyBadge/VerifyBadge';
 import './UserProfile.css';
-
-const API_URL = 'http://localhost:3001/api';
 
 const UserProfile = () => {
   const { userId } = useParams();
@@ -38,7 +37,7 @@ const UserProfile = () => {
   const loadUser = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API_URL}/users/${userId}`);
+      const res = await fetch(`${getApiUrl()}/users/${userId}`);
       if (!res.ok) {
         console.error(`Failed to load user ${userId}: ${res.status} ${res.statusText}`);
         const errorData = await res.json().catch(() => ({}));
