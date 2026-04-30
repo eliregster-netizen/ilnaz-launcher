@@ -130,10 +130,15 @@ app.post('/api/register', (req, res) => {
     }
     const userId = generateId();
     const displayName = nickname || username;
+    
+    // Первый зарегистрированный пользователь становится Owner
+    const count = db.prepare('SELECT COUNT(*) as count FROM users').get().count;
+    const role = count === 0 ? 'owner' : 'user';
+
     const stmt = db.prepare(
-      `INSERT INTO users (id, username, password, nickname) VALUES (?, ?, ?, ?)`
+      `INSERT INTO users (id, username, password, nickname, role) VALUES (?, ?, ?, ?, ?)`
     );
-    stmt.run(userId, username, password, displayName);
+    stmt.run(userId, username, password, displayName, role);
     const user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
     user.friends = JSON.parse(user.friends);
     res.json({ success: true, user });

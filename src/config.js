@@ -1,4 +1,4 @@
-const DEFAULT_SERVER = 'http://localhost:3001';
+const DEFAULT_SERVER = 'https://ilnaz-launcher.onrender.com';
 
 export function getServerUrl() {
   try {
