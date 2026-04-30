@@ -1,4 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
+import logo from '../../assets/logo.png';
 import VerifyBadge from '../VerifyBadge/VerifyBadge';
 import './Sidebar.css';
 
@@ -86,7 +87,7 @@ const Sidebar = ({ profile }) => {
     <aside className="sidebar glass">
       <div className="sidebar-header">
         <div className="sidebar-logo">
-          <img src="/logo.png" className="logo-icon" alt="Logo" />
+          <img src={logo} className="logo-icon" alt="Logo" />
           <span className="logo-text">ILNAZ</span>
         </div>
         <div className="logo-subtitle">GAMING LAUNCHER</div>

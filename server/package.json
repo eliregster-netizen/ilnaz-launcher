@@ -1,17 +1,16 @@
 {
   "name": "ilnaz-gaming-server",
   "version": "0.1.0",
-  "description": "ILNAZ GAMING LAUNCHER - Friend system server",
+  "description": "ILNAZ GAMING LAUNCHER - Backend Server",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "dev": "node index.js"
+    "admin": "node admin.js"
   },
   "dependencies": {
-    "better-sqlite3": "^12.9.0",
-    "cors": "^2.8.5",
     "express": "^4.18.2",
-    "fs-extra": "^11.2.0",
-    "socket.io": "^4.7.4"
+    "socket.io": "^4.7.4",
+    "cors": "^2.8.5",
+    "mongodb": "^6.3.0"
   }
 }

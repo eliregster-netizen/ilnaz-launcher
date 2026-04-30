@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { login, register } from '../../utils/auth';
+import logo from '../../assets/logo.png';
 import './Auth.css';
 
 const Auth = ({ onLogin }) => {
@@ -57,7 +58,7 @@ const Auth = ({ onLogin }) => {
       </div>
       <div className="auth-card glass fade-in">
         <div className="auth-logo">
-          <img src="/logo.png" className="logo-icon-large" alt="Logo" />
+          <img src={logo} className="logo-icon-large" alt="Logo" />
           <h1 className="auth-title">ILNAZ</h1>
         </div>
         <h2 className="auth-subtitle">GAMING LAUNCHER</h2>
@@ -108,12 +109,6 @@ const Auth = ({ onLogin }) => {
             {loading ? 'Загрузка...' : isLogin ? 'Войти' : 'Создать аккаунт'}
           </button>
         </form>
-
-        {!isLogin && (
-          <div className="auth-info">
-            <span className="info-text">После регистрации ваш ID будет сгенерирован автоматически</span>
-          </div>
-        )}
 
         <div className="auth-footer">
           {isLogin ? 'Нет аккаунта? ' : 'Уже есть аккаунт? '}
