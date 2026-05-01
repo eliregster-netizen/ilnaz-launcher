@@ -98,6 +98,20 @@ export async function updateUser(updates) {
   return data;
 }
 
+export async function updateUserStats(userId, stats) {
+  const res = await fetch(`${getApiUrl()}/users/${userId}/stats`, {
+    method: 'PUT',
+    headers: authHeaders(),
+    body: JSON.stringify(stats),
+  });
+  const data = await res.json();
+  if (data.success) {
+    activeUser = data.user;
+    localStorage.setItem('ilnaz-session', JSON.stringify(data.user));
+  }
+  return data;
+}
+
 export async function sendFriendRequest(toId) {
   if (!activeUser) return null;
   const res = await fetch(`${getApiUrl()}/friends/request`, {
@@ -216,10 +230,13 @@ export async function refreshSession() {
 }
 
 export async function adminGetUsers() {
-  const res = await fetch(`${getApiUrl()}/admin/users`, {
+  const res = await fetch(`${getApiUrl()}/api/admin/users`, {
     headers: authHeaders(false),
   });
-  if (!res.ok) return [];
+  if (!res.ok) {
+    console.error('[Admin] Failed to fetch users:', res.status, await res.text());
+    return [];
+  }
   return res.json();
 }
 
@@ -250,9 +267,12 @@ export async function adminEditUser(userId, data) {
 }
 
 export async function adminGetStats() {
-  const res = await fetch(`${getApiUrl()}/admin/stats`, {
+  const res = await fetch(`${getApiUrl()}/api/admin/stats`, {
     headers: authHeaders(false),
   });
-  if (!res.ok) return null;
+  if (!res.ok) {
+    console.error('[Admin] Failed to fetch stats:', res.status, await res.text());
+    return null;
+  }
   return res.json();
 }

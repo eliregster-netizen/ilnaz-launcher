@@ -23,6 +23,7 @@ const Sidebar = ({ profile }) => {
   const navItems = [
     { path: '/', icon: 'home', label: 'Home' },
     { path: '/library', icon: 'library', label: 'Library' },
+    { path: '/minecraft', icon: 'minecraft', label: 'Minecraft' },
     { path: '/friends', icon: 'friends', label: 'Друны' },
     { path: '/chat', icon: 'chat', label: 'Чат' },
     { path: '/profile', icon: 'profile', label: 'Profile' },
@@ -48,6 +49,14 @@ const Sidebar = ({ profile }) => {
             <rect x="14" y="3" width="7" height="7" />
             <rect x="14" y="14" width="7" height="7" />
             <rect x="3" y="14" width="7" height="7" />
+          </svg>
+        );
+      case 'minecraft':
+        return (
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M12 2L2 7l10 5 10-5-10-5z" />
+            <path d="M2 17l10 5 10-5" />
+            <path d="M2 12l10 5 10-5" />
           </svg>
         );
       case 'friends':

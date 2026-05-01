@@ -22,6 +22,7 @@ export function getSocket() {
       reconnection: true,
       reconnectionAttempts: 10,
       reconnectionDelay: 1000,
+      maxHttpBufferSize: 15 * 1024 * 1024, // 15MB для файлов
     });
   }
   return socket;

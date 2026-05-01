@@ -13,7 +13,10 @@ const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
   : ['http://localhost:5173', 'http://localhost:3000'];
 
-const io = new Server(server, { cors: { origin: ALLOWED_ORIGINS, credentials: true } });
+const io = new Server(server, {
+  cors: { origin: ALLOWED_ORIGINS, credentials: true },
+  maxHttpBufferSize: 15 * 1024 * 1024, // 15MB для поддержки файлов до 10MB в base64
+});
 
 app.use(cors({ origin: ALLOWED_ORIGINS, credentials: true }));
 app.use((req, res, next) => {
@@ -148,6 +151,18 @@ app.put('/api/users/:id', authenticateToken, async (req, res) => {
   res.json({ success: true, user: await getUser(req.params.id) });
 });
 
+app.put('/api/users/:id/stats', authenticateToken, async (req, res) => {
+  if (req.params.id !== req.userId) return res.status(403).json({ error: 'Not allowed' });
+  const { games_played, hours_played } = req.body;
+  const user = await users.findOne({ id: req.params.id });
+  const updates = {};
+  if (games_played !== undefined) updates.games_played = (user.games_played || 0) + games_played;
+  if (hours_played !== undefined) updates.hours_played = (user.hours_played || 0) + hours_played;
+  if (Object.keys(updates).length === 0) return res.json({ success: true });
+  await users.updateOne({ id: req.params.id }, { $set: updates });
+  res.json({ success: true, user: await getUser(req.params.id) });
+});
+
 app.post('/api/friends/request', authenticateToken, async (req, res) => {
   const { toId } = req.body;
   const fromId = req.userId;
@@ -248,12 +263,14 @@ function authenticateToken(req, res, next) {
 
 async function requireAdmin(req, res, next) {
   const user = await users.findOne({ id: req.userId });
+  console.log('[Admin Check] userId:', req.userId, 'userRole:', user?.role, 'username:', user?.username);
   if (!user || (user.role !== 'admin' && user.role !== 'owner')) return res.status(403).json({ error: 'Admin access required' });
   next();
 }
 
 app.get('/api/admin/users', authenticateToken, requireAdmin, async (req, res) => {
   const us = await users.find().sort({ created_at: -1 }).toArray();
+  console.log('[Admin Users] Found', us.length, 'users');
   us.forEach(u => u.friends = u.friends || []);
   res.json(us);
 });
@@ -334,10 +351,12 @@ const cleanupInterval = setInterval(() => {
 }, 5 * 60 * 1000);
 
 io.on('connection', (socket) => {
-  let currentUserId = null;
+  // Восстанавливаем userId из socket.data при reconnect
+  let currentUserId = socket.data.userId || null;
 
   socket.on('join', (userId) => {
     currentUserId = userId;
+    socket.data.userId = userId; // Сохраняем для reconnect
     socket.join(userId);
   });
 

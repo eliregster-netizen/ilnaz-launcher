@@ -9,6 +9,7 @@ import Friends from './pages/Friends';
 import Chat from './pages/Chat';
 import UserProfile from './pages/UserProfile';
 import Admin from './pages/Admin';
+import Minecraft from './pages/Minecraft';
 import {
   getActiveUser,
   getUserById,
@@ -27,6 +28,7 @@ const App = () => {
   const [profile, setProfile] = useState(null);
   const location = useLocation();
   const isChatPage = location.pathname.startsWith('/chat');
+  const isMinecraftPage = location.pathname.startsWith('/minecraft');
 
   useEffect(() => {
     loadSession();
@@ -91,10 +93,11 @@ const App = () => {
         </div>
       </div>
       <Sidebar profile={profile} />
-      <main className={`main-content ${isChatPage ? 'no-padding' : ''}`}>
+      <main className={`main-content ${(isChatPage || isMinecraftPage) ? 'no-padding' : ''}`}>
         <Routes>
           <Route path="/" element={<Home profile={profile} />} />
           <Route path="/library" element={<Library profile={profile} />} />
+          <Route path="/minecraft" element={<Minecraft />} />
           <Route path="/profile" element={<Profile profile={profile} onUpdate={handleProfileUpdate} onLogout={handleLogout} />} />
           <Route path="/profile/:userId" element={<UserProfileRoute />} />
           <Route path="/friends" element={<Friends />} />

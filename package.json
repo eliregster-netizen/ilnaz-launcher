@@ -30,11 +30,14 @@
     "wait-on": "^7.2.0"
   },
   "dependencies": {
+    "adm-zip": "^0.5.17",
     "bcrypt": "^6.0.0",
     "cors": "^2.8.5",
+    "discord-rpc": "^4.0.1",
     "express": "^4.18.2",
     "fs-extra": "^11.2.0",
     "jsonwebtoken": "^9.0.3",
+    "mongodb": "^7.2.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.21.2",
@@ -51,6 +54,25 @@
       "dist/**/*",
       "electron/**/*",
       "package.json"
-    ]
+    ],
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "category": "Game",
+      "icon": "build/icons"
+    },
+    "win": {
+      "target": [
+        "portable"
+      ],
+      "icon": "build/icons/icon.ico"
+    },
+    "mac": {
+      "target": [
+        "zip"
+      ],
+      "category": "public.app-category.games"
+    }
   }
 }
