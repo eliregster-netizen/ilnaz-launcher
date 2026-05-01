@@ -54,7 +54,7 @@ const Friends = () => {
   const handleSendRequest = async (toId) => {
     const res = await sendFriendRequest(toId);
     if (res.success) {
-      setSearchResults(results => results.filter(r => r.id !== toId));
+      setSearchResults(prev => prev.filter(r => r.id !== toId));
       loadSentRequests();
     } else {
       alert(res.error || 'Не удалось отправить заявку');
@@ -87,7 +87,7 @@ const Friends = () => {
             placeholder="Поиск по ID или нику..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+            onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
           />
           <button className="search-btn" onClick={handleSearch} disabled={searching}>
             {searching ? 'Поиск...' : 'Поиск'}

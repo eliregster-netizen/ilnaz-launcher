@@ -33,7 +33,6 @@ const NewChatModal = ({ onClose, onCreate }) => {
   const handleCreate = async () => {
     if (selectedFriends.length === 0) return;
     const res = await createConversation(
-      user.id,
       chatType,
       chatType === 'group' ? groupName : null,
       selectedFriends

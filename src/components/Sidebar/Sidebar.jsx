@@ -100,7 +100,7 @@ const Sidebar = ({ profile }) => {
               <img src={profile.avatar} alt={profile.nickname} />
             ) : (
               <div className="avatar-placeholder">
-                {profile.nickname.charAt(0).toUpperCase()}
+                {profile.nickname?.charAt(0).toUpperCase() || '?'}
               </div>
             )}
             <span className={`status-indicator ${profile.status}`} />

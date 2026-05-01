@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
-import { editConversation } from '../../utils/chat';
-import { getActiveUser, getFriendsList } from '../../utils/auth';
-import { getApiUrl } from '../../config';
+import { editConversation, addMembers } from '../../utils/chat';
+import { getFriendsList } from '../../utils/auth';
 
 const EditGroupModal = ({ conversation, onClose, onUpdated }) => {
   const [name, setName] = useState(conversation.name || '');
@@ -65,13 +64,7 @@ const EditGroupModal = ({ conversation, onClose, onUpdated }) => {
   const handleAddMembers = async () => {
     if (selectedFriends.length === 0) return;
     setLoading(true);
-    const user = getActiveUser();
-    const res = await fetch(`${getApiUrl()}/chat/conversations/${conversation.id}/add-members`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId: user.id, newMemberIds: selectedFriends }),
-    });
-    const data = await res.json();
+    const data = await addMembers(conversation.id, selectedFriends);
     setLoading(false);
     if (data.success) {
       if (onUpdated) onUpdated(conversation);

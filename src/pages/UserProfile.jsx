@@ -35,6 +35,7 @@ const UserProfile = () => {
   };
 
   const loadUser = async () => {
+    if (!userId) { setUser(null); setLoading(false); return; }
     setLoading(true);
     try {
       const res = await fetch(`${getApiUrl()}/users/${userId}`);

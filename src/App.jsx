@@ -21,7 +21,7 @@ import './styles/global.css';
 const App = () => {
   const [profile, setProfile] = useState(null);
   const location = useLocation();
-  const isChatPage = location.pathname === '/chat';
+  const isChatPage = location.pathname.startsWith('/chat');
 
   useEffect(() => {
     loadSession();
@@ -55,7 +55,7 @@ const App = () => {
 
   const handleProfileUpdate = async (data) => {
     setProfile(prev => ({ ...prev, ...data }));
-    const fresh = await getUserById(prev.id);
+    const fresh = await getUserById(data.id || profile.id);
     if (fresh) setProfile(fresh);
   };
 

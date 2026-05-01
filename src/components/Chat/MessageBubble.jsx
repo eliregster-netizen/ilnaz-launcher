@@ -8,11 +8,45 @@ const MessageBubble = ({ message, isOwn, onDelete, onImageClick }) => {
 
   const formatTime = (dateStr) => {
     const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return '';
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
   const isImageUrl = (text) => {
     return /https?:\/\/.*\.(png|jpg|jpeg|gif|webp|bmp)(\?.*)?$/i.test(text);
+  };
+
+  const escapeHtml = (text) => {
+    const div = document.createElement('div');
+    div.appendChild(document.createTextNode(text));
+    return div.innerHTML;
+  };
+
+  const formatInline = (text) => {
+    const result = [];
+    let remaining = text;
+    let keyIdx = 0;
+
+    while (remaining.length > 0) {
+      const boldMatch = remaining.match(/^\*\*(.+?)\*\*/);
+      const italicMatch = remaining.match(/^\*(.+?)\*/);
+      const codeMatch = remaining.match(/^`(.+?)`/);
+
+      if (boldMatch) {
+        result.push(<strong key={keyIdx++}>{boldMatch[1]}</strong>);
+        remaining = remaining.slice(boldMatch[0].length);
+      } else if (italicMatch) {
+        result.push(<em key={keyIdx++}>{italicMatch[1]}</em>);
+        remaining = remaining.slice(italicMatch[0].length);
+      } else if (codeMatch) {
+        result.push(<code key={keyIdx++}>{codeMatch[1]}</code>);
+        remaining = remaining.slice(codeMatch[0].length);
+      } else {
+        result.push(<span key={keyIdx++}>{remaining[0]}</span>);
+        remaining = remaining.slice(1);
+      }
+    }
+    return result;
   };
 
   const formatContent = (content) => {
@@ -32,11 +66,7 @@ const MessageBubble = ({ message, isOwn, onDelete, onImageClick }) => {
         );
       }
       if (!part.trim()) return null;
-      let formatted = part;
-      formatted = formatted.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-      formatted = formatted.replace(/\*(.+?)\*/g, '<em>$1</em>');
-      formatted = formatted.replace(/`(.+?)`/g, '<code>$1</code>');
-      return <span key={i} dangerouslySetInnerHTML={{ __html: formatted }} />;
+      return <span key={i}>{formatInline(part)}</span>;
     });
   };
 

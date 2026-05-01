@@ -2,6 +2,26 @@ import { getApiUrl } from '../config';
 
 let activeUser = null;
 
+function getToken() {
+  return localStorage.getItem('ilnaz-token');
+}
+
+function setToken(token) {
+  localStorage.setItem('ilnaz-token', token);
+}
+
+function removeToken() {
+  localStorage.removeItem('ilnaz-token');
+}
+
+function authHeaders(json = true) {
+  const h = {};
+  if (json) h['Content-Type'] = 'application/json';
+  const token = getToken();
+  if (token) h['Authorization'] = `Bearer ${token}`;
+  return h;
+}
+
 export function getActiveUser() {
   if (!activeUser) {
     try {
@@ -24,6 +44,7 @@ export async function login(username, password) {
   if (data.success) {
     activeUser = data.user;
     localStorage.setItem('ilnaz-session', JSON.stringify(data.user));
+    if (data.token) setToken(data.token);
   }
   return data;
 }
@@ -38,6 +59,7 @@ export async function register(username, password, nickname) {
   if (data.success) {
     activeUser = data.user;
     localStorage.setItem('ilnaz-session', JSON.stringify(data.user));
+    if (data.token) setToken(data.token);
   }
   return data;
 }
@@ -65,7 +87,7 @@ export async function updateUser(updates) {
   if (!activeUser) return null;
   const res = await fetch(`${getApiUrl()}/users/${activeUser.id}`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
+    headers: authHeaders(),
     body: JSON.stringify(updates),
   });
   const data = await res.json();
@@ -80,8 +102,8 @@ export async function sendFriendRequest(toId) {
   if (!activeUser) return null;
   const res = await fetch(`${getApiUrl()}/friends/request`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ fromId: activeUser.id, toId }),
+    headers: authHeaders(),
+    body: JSON.stringify({ toId }),
   });
   return res.json();
 }
@@ -104,8 +126,7 @@ export async function acceptFriendRequest(requestId) {
   if (!activeUser) return null;
   const res = await fetch(`${getApiUrl()}/friends/accept/${requestId}`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ userId: activeUser.id }),
+    headers: authHeaders(),
   });
   if (res.ok) {
     const updatedUser = await getUserById(activeUser.id);
@@ -121,16 +142,16 @@ export async function declineFriendRequest(requestId) {
   if (!activeUser) return null;
   const res = await fetch(`${getApiUrl()}/friends/decline/${requestId}`, {
     method: 'DELETE',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ userId: activeUser.id }),
+    headers: authHeaders(),
   });
   return res.json();
 }
 
 export async function removeFriend(friendId) {
   if (!activeUser) return null;
-  const res = await fetch(`${getApiUrl()}/friends/remove/${activeUser.id}/${friendId}`, {
+  const res = await fetch(`${getApiUrl()}/friends/remove/${friendId}`, {
     method: 'DELETE',
+    headers: authHeaders(),
   });
   if (res.ok) {
     const updatedUser = await getUserById(activeUser.id);
@@ -146,7 +167,7 @@ export async function setStatus(status) {
   if (!activeUser) return;
   await fetch(`${getApiUrl()}/users/${activeUser.id}/status`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: authHeaders(),
     body: JSON.stringify({ status }),
   });
 }
@@ -157,6 +178,7 @@ export function logout() {
   }
   activeUser = null;
   localStorage.removeItem('ilnaz-session');
+  removeToken();
 }
 
 export async function getFriendsList() {
@@ -186,7 +208,7 @@ export async function refreshSession() {
 
 export async function adminGetUsers() {
   const res = await fetch(`${getApiUrl()}/admin/users`, {
-    headers: { 'X-User-Id': activeUser.id },
+    headers: authHeaders(false),
   });
   if (!res.ok) return [];
   return res.json();
@@ -195,7 +217,7 @@ export async function adminGetUsers() {
 export async function adminDeleteUser(userId) {
   const res = await fetch(`${getApiUrl()}/admin/users/${userId}`, {
     method: 'DELETE',
-    headers: { 'X-User-Id': activeUser.id },
+    headers: authHeaders(false),
   });
   return res.json();
 }
@@ -203,7 +225,7 @@ export async function adminDeleteUser(userId) {
 export async function adminBanUser(userId, banned) {
   const res = await fetch(`${getApiUrl()}/admin/users/${userId}/ban`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json', 'X-User-Id': activeUser.id },
+    headers: authHeaders(),
     body: JSON.stringify({ banned }),
   });
   return res.json();
@@ -212,7 +234,7 @@ export async function adminBanUser(userId, banned) {
 export async function adminEditUser(userId, data) {
   const res = await fetch(`${getApiUrl()}/admin/users/${userId}/edit`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json', 'X-User-Id': activeUser.id },
+    headers: authHeaders(),
     body: JSON.stringify(data),
   });
   return res.json();
@@ -220,7 +242,7 @@ export async function adminEditUser(userId, data) {
 
 export async function adminGetStats() {
   const res = await fetch(`${getApiUrl()}/admin/stats`, {
-    headers: { 'X-User-Id': activeUser.id },
+    headers: authHeaders(false),
   });
   if (!res.ok) return null;
   return res.json();

@@ -3,13 +3,27 @@ const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const crypto = require('crypto');
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
 const { MongoClient } = require('mongodb');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: '*' } });
+const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
+  : ['http://localhost:5173', 'http://localhost:3000'];
 
-app.use(cors());
+const io = new Server(server, { cors: { origin: ALLOWED_ORIGINS, credentials: true } });
+
+app.use(cors({ origin: ALLOWED_ORIGINS, credentials: true }));
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  res.removeHeader('X-Powered-By');
+  next();
+});
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
@@ -42,32 +56,52 @@ connectDB().catch(e => console.error(e));
 
 app.post('/api/register', async (req, res) => {
   try {
+    const ip = getClientIp(req);
+    if (!rateLimit(`register:${ip}`, RATE_LIMIT_MAX.register)) return res.status(429).json({ error: 'Too many requests' });
     const { username, password, nickname } = req.body;
     if (!username || !password) return res.status(400).json({ error: 'Username and password required' });
+    if (password.length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters' });
     if (await users.findOne({ username })) return res.status(409).json({ error: 'Username already exists' });
     const userId = generateId();
     const count = await users.countDocuments();
     const role = count === 0 ? 'owner' : 'user';
+    const hashedPassword = await bcrypt.hash(password, 10);
     await users.insertOne({
-      id: userId, username, password, nickname: nickname || username,
+      id: userId, username, password: hashedPassword, nickname: nickname || username,
       avatar: null, banner: null, bio: 'Welcome to ILNAZ GAMING LAUNCHER!',
       status: 'offline', friends: [], games_played: 0, hours_played: 0,
       role, banned: false, created_at: new Date().toISOString(), last_seen: new Date().toISOString()
     });
-    res.json({ success: true, user: await getUser(userId) });
+    const user = await getUser(userId);
+    const token = jwt.sign({ userId: user.id, role: user.role }, JWT_SECRET, { expiresIn: '30d' });
+    res.json({ success: true, user, token });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 app.post('/api/login', async (req, res) => {
+  const ip = getClientIp(req);
+  if (!rateLimit(`login:${ip}`, RATE_LIMIT_MAX.login)) return res.status(429).json({ error: 'Too many requests' });
   const { username, password } = req.body;
   const user = await users.findOne({ username });
   if (!user) return res.status(404).json({ error: 'User not found' });
   if (user.banned) return res.status(403).json({ error: 'Account is banned' });
-  if (user.password !== password) return res.status(401).json({ error: 'Wrong password' });
+
+  let validPassword = await bcrypt.compare(password, user.password);
+
+  if (!validPassword && !user.password.startsWith('$2')) {
+    validPassword = user.password === password;
+    if (validPassword) {
+      const hashed = await bcrypt.hash(password, 10);
+      await users.updateOne({ id: user.id }, { $set: { password: hashed } });
+    }
+  }
+
+  if (!validPassword) return res.status(401).json({ error: 'Wrong password' });
   await users.updateOne({ id: user.id }, { $set: { status: 'online', last_seen: new Date().toISOString() } });
   user.friends = user.friends || [];
   io.emit('user-status', { id: user.id, status: 'online' });
-  res.json({ success: true, user });
+  const token = jwt.sign({ userId: user.id, role: user.role }, JWT_SECRET, { expiresIn: '30d' });
+  res.json({ success: true, user, token });
 });
 
 app.get('/api/users/:id', async (req, res) => {
@@ -93,14 +127,16 @@ app.get('/api/search', async (req, res) => {
   res.json(found);
 });
 
-app.post('/api/users/:id/status', async (req, res) => {
+app.post('/api/users/:id/status', authenticateToken, async (req, res) => {
+  if (req.params.id !== req.userId) return res.status(403).json({ error: 'Not allowed' });
   const { status } = req.body;
   await users.updateOne({ id: req.params.id }, { $set: { status, last_seen: new Date().toISOString() } });
   io.emit('user-status', { id: req.params.id, status });
   res.json({ success: true });
 });
 
-app.put('/api/users/:id', async (req, res) => {
+app.put('/api/users/:id', authenticateToken, async (req, res) => {
+  if (req.params.id !== req.userId) return res.status(403).json({ error: 'Not allowed' });
   const { nickname, avatar, banner, bio } = req.body;
   const updates = {};
   if (nickname !== undefined) updates.nickname = nickname;
@@ -112,8 +148,9 @@ app.put('/api/users/:id', async (req, res) => {
   res.json({ success: true, user: await getUser(req.params.id) });
 });
 
-app.post('/api/friends/request', async (req, res) => {
-  const { fromId, toId } = req.body;
+app.post('/api/friends/request', authenticateToken, async (req, res) => {
+  const { toId } = req.body;
+  const fromId = req.userId;
   if (fromId === toId) return res.status(400).json({ error: 'Cannot add yourself' });
   const toUser = await getUser(toId);
   if (toUser && (toUser.friends || []).includes(fromId)) return res.status(409).json({ error: 'Already friends' });
@@ -150,8 +187,8 @@ app.get('/api/friends/sent/:userId', async (req, res) => {
   res.json(results);
 });
 
-app.put('/api/friends/accept/:requestId', async (req, res) => {
-  const { userId } = req.body;
+app.put('/api/friends/accept/:requestId', authenticateToken, async (req, res) => {
+  const userId = req.userId;
   const request = await friendRequests.findOne({ id: req.params.requestId, to_id: userId, status: 'pending' });
   if (!request) return res.status(404).json({ error: 'Request not found' });
   await users.updateOne({ id: userId }, { $addToSet: { friends: request.from_id } });
@@ -161,18 +198,20 @@ app.put('/api/friends/accept/:requestId', async (req, res) => {
   res.json({ success: true });
 });
 
-app.delete('/api/friends/decline/:requestId', async (req, res) => {
-  const { userId } = req.body;
+app.delete('/api/friends/decline/:requestId', authenticateToken, async (req, res) => {
+  const userId = req.userId;
   const request = await friendRequests.findOne({ id: req.params.requestId, to_id: userId, status: 'pending' });
   if (!request) return res.status(404).json({ error: 'Request not found' });
   await friendRequests.updateOne({ id: request.id }, { $set: { status: 'declined' } });
   res.json({ success: true });
 });
 
-app.delete('/api/friends/remove/:userId/:friendId', async (req, res) => {
-  await users.updateOne({ id: req.params.userId }, { $pull: { friends: req.params.friendId } });
-  await users.updateOne({ id: req.params.friendId }, { $pull: { friends: req.params.userId } });
-  const u = await getUser(req.params.userId);
+app.delete('/api/friends/remove/:friendId', authenticateToken, async (req, res) => {
+  const userId = req.userId;
+  const friendId = req.params.friendId;
+  await users.updateOne({ id: userId }, { $pull: { friends: friendId } });
+  await users.updateOne({ id: friendId }, { $pull: { friends: userId } });
+  const u = await getUser(userId);
   res.json({ success: true, friends: u.friends });
 });
 
@@ -184,21 +223,33 @@ app.get('/api/friends/list/:userId', async (req, res) => {
   res.json(friends);
 });
 
+function authenticateToken(req, res, next) {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Authentication required' });
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    req.userId = decoded.userId;
+    req.userRole = decoded.role;
+    next();
+  } catch (err) {
+    return res.status(403).json({ error: 'Invalid or expired token' });
+  }
+}
+
 async function requireAdmin(req, res, next) {
-  const userId = req.headers['x-user-id'];
-  if (!userId) return res.status(403).json({ error: 'Admin access required' });
-  const user = await users.findOne({ id: userId });
+  const user = await users.findOne({ id: req.userId });
   if (!user || (user.role !== 'admin' && user.role !== 'owner')) return res.status(403).json({ error: 'Admin access required' });
   next();
 }
 
-app.get('/api/admin/users', requireAdmin, async (req, res) => {
+app.get('/api/admin/users', authenticateToken, requireAdmin, async (req, res) => {
   const us = await users.find().sort({ created_at: -1 }).toArray();
   us.forEach(u => u.friends = u.friends || []);
   res.json(us);
 });
 
-app.delete('/api/admin/users/:id', requireAdmin, async (req, res) => {
+app.delete('/api/admin/users/:id', authenticateToken, requireAdmin, async (req, res) => {
   const target = await users.findOne({ id: req.params.id });
   if (target && target.role === 'owner') return res.status(403).json({ error: 'Cannot modify the owner' });
   await friendRequests.deleteMany({ $or: [{ from_id: req.params.id }, { to_id: req.params.id }] });
@@ -207,7 +258,7 @@ app.delete('/api/admin/users/:id', requireAdmin, async (req, res) => {
   res.json({ success: true });
 });
 
-app.put('/api/admin/users/:id/ban', requireAdmin, async (req, res) => {
+app.put('/api/admin/users/:id/ban', authenticateToken, requireAdmin, async (req, res) => {
   const target = await users.findOne({ id: req.params.id });
   if (target && target.role === 'owner') return res.status(403).json({ error: 'Cannot modify the owner' });
   const { banned } = req.body;
@@ -216,7 +267,7 @@ app.put('/api/admin/users/:id/ban', requireAdmin, async (req, res) => {
   res.json({ success: true });
 });
 
-app.put('/api/admin/users/:id/edit', requireAdmin, async (req, res) => {
+app.put('/api/admin/users/:id/edit', authenticateToken, requireAdmin, async (req, res) => {
   const target = await users.findOne({ id: req.params.id });
   if (target && target.role === 'owner') return res.status(403).json({ error: 'Cannot modify the owner' });
   const { nickname, avatar, banner, bio, role, games_played, hours_played } = req.body;
@@ -233,7 +284,7 @@ app.put('/api/admin/users/:id/edit', requireAdmin, async (req, res) => {
   res.json({ success: true, user: await getUser(req.params.id) });
 });
 
-app.get('/api/admin/stats', requireAdmin, async (req, res) => {
+app.get('/api/admin/stats', authenticateToken, requireAdmin, async (req, res) => {
   res.json({
     totalUsers: await users.countDocuments(),
     totalAdmins: await users.countDocuments({ role: 'admin' }),
@@ -244,6 +295,34 @@ app.get('/api/admin/stats', requireAdmin, async (req, res) => {
 });
 
 const activeCalls = {};
+
+const rateLimitMap = {};
+const RATE_LIMIT_WINDOW = 60 * 1000;
+const RATE_LIMIT_MAX = { login: 10, register: 5, general: 30 };
+
+function rateLimit(key, limit = RATE_LIMIT_MAX.general) {
+  const now = Date.now();
+  if (!rateLimitMap[key]) rateLimitMap[key] = [];
+  rateLimitMap[key] = rateLimitMap[key].filter(t => now - t < RATE_LIMIT_WINDOW);
+  if (rateLimitMap[key].length >= limit) return false;
+  rateLimitMap[key].push(now);
+  return true;
+}
+
+function getClientIp(req) {
+  return req.headers['x-forwarded-for'] || req.connection.remoteAddress || 'unknown';
+}
+
+const cleanupInterval = setInterval(() => {
+  const now = Date.now();
+  for (const convId in activeCalls) {
+    const call = activeCalls[convId];
+    if (call.joined.length === 0 || (now - call.createdAt > 30 * 60 * 1000)) {
+      call.joined.forEach(mid => io.to(mid).emit('call-ended', { conversationId: convId }));
+      delete activeCalls[convId];
+    }
+  }
+}, 5 * 60 * 1000);
 
 io.on('connection', (socket) => {
   let currentUserId = null;
@@ -256,28 +335,31 @@ io.on('connection', (socket) => {
   socket.on('join-conversation', (conversationId) => socket.join(conversationId));
   socket.on('leave-conversation', (conversationId) => socket.leave(conversationId));
   socket.on('send-message', async (data) => {
-    const { conversationId, senderId, content, image } = data;
-    const member = await conversationMembers.findOne({ conversation_id: conversationId, user_id: senderId });
+    if (!currentUserId) return;
+    const { conversationId, content, image } = data;
+    const member = await conversationMembers.findOne({ conversation_id: conversationId, user_id: currentUserId });
     if (!member) return;
     const msgId = generateId();
-    await messages.insertOne({ id: msgId, conversation_id: conversationId, sender_id: senderId, content: content || '', image: image || null, edited: false, deleted: false, created_at: new Date().toISOString() });
-    const sender = await getUser(senderId);
-    io.to(conversationId).emit('new-message', { id: msgId, conversation_id: conversationId, sender_id: senderId, content: content || '', image: image || null, edited: false, deleted: false, created_at: new Date().toISOString(), nickname: sender.nickname, username: sender.username, avatar: sender.avatar });
+    await messages.insertOne({ id: msgId, conversation_id: conversationId, sender_id: currentUserId, content: content || '', image: image || null, edited: false, deleted: false, created_at: new Date().toISOString() });
+    const sender = await getUser(currentUserId);
+    io.to(conversationId).emit('new-message', { id: msgId, conversation_id: conversationId, sender_id: currentUserId, content: content || '', image: image || null, edited: false, deleted: false, created_at: new Date().toISOString(), nickname: sender.nickname, username: sender.username, avatar: sender.avatar });
   });
   socket.on('typing', (data) => socket.to(data.conversationId).emit('user-typing', data));
 
   socket.on('call-start', async (data) => {
     const conv = await conversations.findOne({ id: data.conversationId });
-    const memberIds = conv ? (conv.members || []).map(m => m.id) : [];
+    if (!conv) return;
+    const memberIds = conv.members || [];
+    if (!memberIds.some(m => m.id === data.initiatorId)) return;
     activeCalls[data.conversationId] = {
       initiatorId: data.initiatorId,
       joined: [data.initiatorId],
-      memberIds: memberIds,
+      memberIds: memberIds.map(m => m.id),
       createdAt: Date.now(),
     };
     memberIds.forEach(mid => {
-      if (mid !== data.initiatorId) {
-        io.to(mid).emit('call-incoming', {
+      if (mid.id !== data.initiatorId) {
+        io.to(mid.id).emit('call-incoming', {
           conversationId: data.conversationId,
           initiatorId: data.initiatorId,
         });
@@ -285,16 +367,20 @@ io.on('connection', (socket) => {
     });
   });
 
-  socket.on('call-join-request', (data) => {
+  socket.on('call-join-request', async (data) => {
     const call = activeCalls[data.conversationId];
-    if (call && !call.joined.includes(data.userId)) {
-      call.joined.push(data.userId);
-      io.to(call.initiatorId).emit('call-peer-joined', {
-        conversationId: data.conversationId,
-        userId: data.userId,
-        joined: call.joined,
-      });
-    }
+    if (!call) return;
+    const conv = await conversations.findOne({ id: data.conversationId });
+    if (!conv) return;
+    const memberIds = conv.members || [];
+    if (!memberIds.some(m => m.id === data.userId)) return;
+    if (call.joined.includes(data.userId)) return;
+    call.joined.push(data.userId);
+    io.to(call.initiatorId).emit('call-peer-joined', {
+      conversationId: data.conversationId,
+      userId: data.userId,
+      joined: call.joined,
+    });
   });
 
   socket.on('call-offer', (data) => {
@@ -390,13 +476,25 @@ io.on('connection', (socket) => {
   });
 });
 
-app.post('/api/chat/conversations', async (req, res) => {
-  const { creatorId, type, name, memberIds } = req.body;
+app.post('/api/chat/conversations', authenticateToken, async (req, res) => {
+  const { type, name, memberIds } = req.body;
+  const creatorId = req.userId;
   if (!creatorId || !memberIds || memberIds.length === 0) return res.status(400).json({ error: 'Missing required fields' });
   if (type === 'private' && memberIds.length !== 1) return res.status(400).json({ error: 'Private chat needs exactly 1 user' });
   if (type === 'private') {
-    const existing = await conversations.findOne({ type: 'private' });
-    if (existing) return res.json({ success: true, conversationId: existing.id, existing: true });
+    const otherUserId = memberIds[0];
+    const memberDocs = await conversationMembers.find({ user_id: otherUserId }).toArray();
+    const otherConvIds = memberDocs.map(m => m.conversation_id);
+    if (otherConvIds.length > 0) {
+      const existing = await conversations.findOne({ id: { $in: otherConvIds }, type: 'private' });
+      if (existing) {
+        const existingMembers = await conversationMembers.find({ conversation_id: existing.id }).toArray();
+        const existingUserIds = existingMembers.map(m => m.user_id);
+        if (existingUserIds.includes(creatorId)) {
+          return res.json({ success: true, conversationId: existing.id, existing: true });
+        }
+      }
+    }
   }
   const convId = generateId() + generateId();
   await conversations.insertOne({ id: convId, type, name: name || null, icon: null, description: null, creator_id: creatorId, created_at: new Date().toISOString() });
@@ -434,7 +532,10 @@ app.get('/api/chat/conversations/:userId', async (req, res) => {
 app.get('/api/chat/messages/:conversationId', async (req, res) => {
   const { limit = 50, before } = req.query;
   let query = { conversation_id: req.params.conversationId };
-  if (before) query.id = { $lt: parseInt(before) };
+  if (before) {
+    const beforeMsg = await messages.findOne({ id: before });
+    if (beforeMsg) query.created_at = { $lt: beforeMsg.created_at };
+  }
   const msgs = await messages.find(query).sort({ created_at: 1 }).limit(parseInt(limit)).toArray();
   const senderIds = [...new Set(msgs.map(m => m.sender_id))];
   const senders = await users.find({ id: { $in: senderIds } }).toArray();
@@ -453,42 +554,40 @@ app.get('/api/chat/conversation/:conversationId', async (req, res) => {
   res.json(conv);
 });
 
-app.put('/api/chat/messages/:messageId', async (req, res) => {
-  const { userId, content } = req.body;
+app.put('/api/chat/messages/:messageId', authenticateToken, async (req, res) => {
+  const { content } = req.body;
   const msg = await messages.findOne({ id: req.params.messageId });
-  if (!msg || msg.sender_id !== userId) return res.status(403).json({ error: 'Not allowed' });
+  if (!msg || msg.sender_id !== req.userId) return res.status(403).json({ error: 'Not allowed' });
   if (msg.deleted) return res.status(400).json({ error: 'Message deleted' });
   await messages.updateOne({ id: msg.id }, { $set: { content, edited: true } });
   io.to(msg.conversation_id).emit('message-edited', { messageId: msg.id, content, conversationId: msg.conversation_id });
   res.json({ success: true });
 });
 
-app.delete('/api/chat/messages/:messageId', async (req, res) => {
-  const { userId } = req.query;
+app.delete('/api/chat/messages/:messageId', authenticateToken, async (req, res) => {
   const msg = await messages.findOne({ id: req.params.messageId });
-  if (!msg || msg.sender_id !== userId) return res.status(403).json({ error: 'Not allowed' });
+  if (!msg || msg.sender_id !== req.userId) return res.status(403).json({ error: 'Not allowed' });
   await messages.updateOne({ id: msg.id }, { $set: { deleted: true, content: '' } });
   io.to(msg.conversation_id).emit('message-deleted', { messageId: msg.id, conversationId: msg.conversation_id });
   res.json({ success: true });
 });
 
-app.put('/api/chat/conversations/:conversationId/read', async (req, res) => {
-  const { userId, lastMsgId } = req.body;
-  await conversationMembers.updateOne({ conversation_id: req.params.conversationId, user_id: userId }, { $set: { last_read_msg: lastMsgId } });
+app.put('/api/chat/conversations/:conversationId/read', authenticateToken, async (req, res) => {
+  const { lastMsgId } = req.body;
+  await conversationMembers.updateOne({ conversation_id: req.params.conversationId, user_id: req.userId }, { $set: { last_read_msg: lastMsgId } });
   res.json({ success: true });
 });
 
-app.post('/api/chat/conversations/:conversationId/leave', async (req, res) => {
-  const { userId } = req.body;
-  await conversationMembers.deleteOne({ conversation_id: req.params.conversationId, user_id: userId });
-  io.to(req.params.conversationId).emit('member-left', { conversationId: req.params.conversationId, userId });
+app.post('/api/chat/conversations/:conversationId/leave', authenticateToken, async (req, res) => {
+  await conversationMembers.deleteOne({ conversation_id: req.params.conversationId, user_id: req.userId });
+  io.to(req.params.conversationId).emit('member-left', { conversationId: req.params.conversationId, userId: req.userId });
   res.json({ success: true });
 });
 
-app.put('/api/chat/conversations/:conversationId/add-members', async (req, res) => {
-  const { userId, newMemberIds } = req.body;
+app.put('/api/chat/conversations/:conversationId/add-members', authenticateToken, async (req, res) => {
+  const { newMemberIds } = req.body;
   if (!newMemberIds || newMemberIds.length === 0) return res.status(400).json({ error: 'No members to add' });
-  const member = await conversationMembers.findOne({ conversation_id: req.params.conversationId, user_id: userId });
+  const member = await conversationMembers.findOne({ conversation_id: req.params.conversationId, user_id: req.userId });
   if (!member) return res.status(403).json({ error: 'Not a member' });
   for (const mid of newMemberIds) {
     await conversationMembers.insertOne({ conversation_id: req.params.conversationId, user_id: mid, last_read_msg: 0, joined_at: new Date().toISOString() });
@@ -512,11 +611,11 @@ app.put('/api/chat/conversations/:conversationId/add-members', async (req, res) 
   res.json({ success: true });
 });
 
-app.put('/api/chat/conversations/:conversationId/edit', async (req, res) => {
-  const { userId, name, icon, description } = req.body;
+app.put('/api/chat/conversations/:conversationId/edit', authenticateToken, async (req, res) => {
+  const { name, icon, description } = req.body;
   const conv = await conversations.findOne({ id: req.params.conversationId });
   if (!conv) return res.status(404).json({ error: 'Conversation not found' });
-  if (!await conversationMembers.findOne({ conversation_id: req.params.conversationId, user_id: userId })) return res.status(403).json({ error: 'Not a member' });
+  if (!await conversationMembers.findOne({ conversation_id: req.params.conversationId, user_id: req.userId })) return res.status(403).json({ error: 'Not a member' });
   const updates = {};
   if (name !== undefined) updates.name = name;
   if (icon !== undefined) updates.icon = icon;
@@ -528,11 +627,10 @@ app.put('/api/chat/conversations/:conversationId/edit', async (req, res) => {
   res.json({ success: true, conversation: updated });
 });
 
-app.delete('/api/chat/conversations/:conversationId', async (req, res) => {
-  const { userId } = req.query;
+app.delete('/api/chat/conversations/:conversationId', authenticateToken, async (req, res) => {
   const conv = await conversations.findOne({ id: req.params.conversationId });
   if (!conv) return res.status(404).json({ error: 'Conversation not found' });
-  if (conv.creator_id !== userId) return res.status(403).json({ error: 'Only creator can delete' });
+  if (conv.creator_id !== req.userId) return res.status(403).json({ error: 'Only creator can delete' });
   await messages.deleteMany({ conversation_id: req.params.conversationId });
   await conversationMembers.deleteMany({ conversation_id: req.params.conversationId });
   await conversations.deleteOne({ id: req.params.conversationId });

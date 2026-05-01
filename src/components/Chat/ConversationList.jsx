@@ -13,6 +13,7 @@ const ConversationList = ({ conversations, activeId, onSelect }) => {
   const formatTime = (dateStr) => {
     if (!dateStr) return '';
     const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return '';
     const now = new Date();
     const diff = now - date;
     if (diff < 86400000) {

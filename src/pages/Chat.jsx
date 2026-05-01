@@ -52,11 +52,13 @@ const Chat = () => {
   const messagesEndRef = useRef(null);
   const socketRef = useRef(null);
   const typingTimeoutRef = useRef(null);
+  const debounceRef = useRef(null);
   const activeConvRef = useRef(null);
   const userRef = useRef(null);
   const conversationsRef = useRef([]);
   const callActiveRef = useRef(false);
   const callConvIdRef = useRef(null);
+  const isInitiatorRef = useRef(false);
   const localVideoRef = useRef(null);
   const peerConnectionsRef = useRef({});
   const localStreamRef = useRef(null);
@@ -72,6 +74,7 @@ const Chat = () => {
   conversationsRef.current = conversations;
   callActiveRef.current = callActive;
   callConvIdRef.current = callConversationId;
+  isInitiatorRef.current = isInitiator;
 
   const loadConversations = useCallback(async () => {
     if (!user) return;
@@ -79,6 +82,11 @@ const Chat = () => {
     setConversations(list);
     setLoading(false);
   }, [user]);
+
+  const debouncedLoadConversations = useCallback(() => {
+    clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => loadConversations(), 300);
+  }, [loadConversations]);
 
   const refreshConversations = useCallback(async () => {
     if (!user) return;
@@ -492,19 +500,19 @@ const Chat = () => {
         setMessages(prev => [...prev, msg]);
         markAsRead(activeConvRef.current.id, msg.id).then(() => refreshConversations());
       }
-      loadConversations();
+      debouncedLoadConversations();
     });
 
-    socket.on('new-conversation', () => loadConversations());
+    socket.on('new-conversation', () => debouncedLoadConversations());
     socket.on('conversation-deleted', ({ conversationId }) => {
       if (activeConvRef.current?.id === conversationId) { setActiveConv(null); setMessages([]); }
-      loadConversations();
+      debouncedLoadConversations();
     });
     socket.on('members-added', ({ conversationId }) => {
       if (conversationId === activeConvRef.current?.id) {
         getConversation(conversationId).then(data => { if (data) setActiveConv(prev => ({ ...prev, members: data.members })); });
       }
-      loadConversations();
+      debouncedLoadConversations();
     });
     socket.on('user-typing', ({ conversationId, userId }) => {
       if (conversationId === activeConvRef.current?.id && userId !== userRef.current?.id) {
@@ -520,74 +528,48 @@ const Chat = () => {
     });
     socket.on('conversation-updated', ({ conversationId, conversation }) => {
       if (conversationId === activeConvRef.current?.id) { setActiveConv(prev => ({ ...prev, ...conversation })); }
-      loadConversations();
+      debouncedLoadConversations();
     });
 
     socket.on('call-incoming', (data) => {
-      if (callActiveRef.current) return;
-      setCallConversationId(data.conversationId);
-      callConvIdRef.current = data.conversationId;
-      setCallInitiatorId(data.initiatorId);
-      setShowIncomingCall(true);
+      // Звонки временно отключены
     });
 
     socket.on('call-offer', (data) => {
-      if (callActiveRef.current && localStreamRef.current) {
-        handlePeerOffer(data);
-      } else {
-        pendingOffersRef.current[data.from] = data;
-      }
+      // Звонки временно отключены
     });
 
-    socket.on('call-answer', (data) => { handlePeerAnswer(data); });
-    socket.on('call-signal', (data) => { handlePeerSignal(data); });
+    socket.on('call-answer', (data) => {
+      // Звонки временно отключены
+    });
+
+    socket.on('call-signal', (data) => {
+      // Звонки временно отключены
+    });
 
     socket.on('call-peer-joined', (data) => {
-      setCallJoinedMembers(data.joined);
-      if (data.userId === user.id && !callActiveRef.current) {
-        setCallActive(true);
-        callActiveRef.current = true;
-        callStartTimeRef.current = Date.now();
-        durationIntervalRef.current = setInterval(() => {
-          setCallDuration(Math.floor((Date.now() - callStartTimeRef.current) / 1000));
-        }, 1000);
-        const pending = pendingOffersRef.current;
-        for (const fromId in pending) {
-          const od = pending[fromId];
-          delete pendingOffersRef.current[fromId];
-          handlePeerOffer(od);
-        }
-      }
-      if (isInitiator && data.userId !== user.id && localStreamRef.current) {
-        createPeerAndOffer(data.userId, localStreamRef.current, data.conversationId);
-      }
+      // Звонки временно отключены
     });
 
     socket.on('call-peer-left', (data) => {
-      setCallJoinedMembers(data.joined);
-      if (data.userId !== user.id) {
-        const pc = peerConnectionsRef.current[data.userId];
-        if (pc) { try { pc.close(); } catch (e) {} delete peerConnectionsRef.current[data.userId]; }
-        delete analyzersRef.current[data.userId];
-        setRemoteAudioStreams(prev => { const n = { ...prev }; delete n[data.userId]; return n; });
-        setRemoteVideoStreams(prev => { const n = { ...prev }; delete n[data.userId]; return n; });
-      }
-      if (data.joined.length === 0) cleanupCall();
+      // Звонки временно отключены
     });
 
     socket.on('call-initiator-changed', (data) => {
-      setCallInitiatorId(data.newInitiatorId);
-      setCallJoinedMembers(data.joined);
-      if (data.newInitiatorId === user.id) setIsInitiator(true);
+      // Звонки временно отключены
     });
 
     socket.on('call-member-muted', (data) => {
-      setMutedUsers(prev => ({ ...prev, [data.userId]: data.muted }));
+      // Звонки временно отключены
     });
 
-    socket.on('call-ended', () => { cleanupCall(); });
+    socket.on('call-ended', () => {
+      // Звонки временно отключены
+    });
 
     return () => {
+      clearTimeout(typingTimeoutRef.current);
+      clearTimeout(debounceRef.current);
       if (activeConv?.id) leaveConversation(activeConv.id);
       socket.off('new-message');
       socket.off('new-conversation');

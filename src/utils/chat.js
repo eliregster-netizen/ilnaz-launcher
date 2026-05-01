@@ -4,9 +4,25 @@ import { getApiUrl, getSocketUrl } from '../config';
 
 let socket = null;
 
+function getToken() {
+  return localStorage.getItem('ilnaz-token');
+}
+
+function authHeaders(json = true) {
+  const h = {};
+  if (json) h['Content-Type'] = 'application/json';
+  const token = getToken();
+  if (token) h['Authorization'] = `Bearer ${token}`;
+  return h;
+}
+
 export function getSocket() {
-  if (!socket) {
-    socket = io(getSocketUrl());
+  if (!socket || !socket.connected) {
+    socket = io(getSocketUrl(), {
+      reconnection: true,
+      reconnectionAttempts: 10,
+      reconnectionDelay: 1000,
+    });
   }
   return socket;
 }
@@ -37,30 +53,27 @@ export async function getConversation(conversationId) {
   return res.json();
 }
 
-export async function createConversation(creatorId, type, name, memberIds) {
+export async function createConversation(type, name, memberIds) {
   const res = await fetch(`${getApiUrl()}/chat/conversations`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ creatorId, type, name, memberIds }),
+    headers: authHeaders(),
+    body: JSON.stringify({ type, name, memberIds }),
   });
   return res.json();
 }
 
 export async function markAsRead(conversationId, lastMsgId) {
-  const user = getActiveUser();
-  if (!user) return;
   await fetch(`${getApiUrl()}/chat/conversations/${conversationId}/read`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ userId: user.id, lastMsgId }),
+    headers: authHeaders(),
+    body: JSON.stringify({ lastMsgId }),
   });
 }
 
 export async function deleteMessage(messageId) {
-  const user = getActiveUser();
-  if (!user) return null;
-  const res = await fetch(`${getApiUrl()}/chat/messages/${messageId}?userId=${user.id}`, {
+  const res = await fetch(`${getApiUrl()}/chat/messages/${messageId}`, {
     method: 'DELETE',
+    headers: authHeaders(false),
   });
   return res.json();
 }
@@ -68,7 +81,7 @@ export async function deleteMessage(messageId) {
 export function sendMessage(conversationId, content, image = null) {
   const user = getActiveUser();
   if (!user || !socket) return;
-  socket.emit('send-message', { conversationId, senderId: user.id, content, image });
+  socket.emit('send-message', { conversationId, content, image });
 }
 
 export function joinConversation(conversationId) {
@@ -88,21 +101,35 @@ export function sendTyping(conversationId) {
 }
 
 export async function editConversation(conversationId, data) {
-  const user = getActiveUser();
-  if (!user) return null;
   const res = await fetch(`${getApiUrl()}/chat/conversations/${conversationId}/edit`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ userId: user.id, ...data }),
+    headers: authHeaders(),
+    body: JSON.stringify(data),
   });
   return res.json();
 }
 
 export async function deleteConversation(conversationId) {
-  const user = getActiveUser();
-  if (!user) return null;
-  const res = await fetch(`${getApiUrl()}/chat/conversations/${conversationId}?userId=${user.id}`, {
+  const res = await fetch(`${getApiUrl()}/chat/conversations/${conversationId}`, {
     method: 'DELETE',
+    headers: authHeaders(false),
+  });
+  return res.json();
+}
+
+export async function addMembers(conversationId, newMemberIds) {
+  const res = await fetch(`${getApiUrl()}/chat/conversations/${conversationId}/add-members`, {
+    method: 'PUT',
+    headers: authHeaders(),
+    body: JSON.stringify({ newMemberIds }),
+  });
+  return res.json();
+}
+
+export async function leaveConversationAPI(conversationId) {
+  const res = await fetch(`${getApiUrl()}/chat/conversations/${conversationId}/leave`, {
+    method: 'POST',
+    headers: authHeaders(),
   });
   return res.json();
 }
