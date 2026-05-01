@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: ilnaz-launcher
+    env: node
+    region: oregon
+    plan: free
+    buildCommand: npm install
+    startCommand: node server/index.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGO_URI
+        sync: false
