@@ -97,3 +97,12 @@ export async function editConversation(conversationId, data) {
   });
   return res.json();
 }
+
+export async function deleteConversation(conversationId) {
+  const user = getActiveUser();
+  if (!user) return null;
+  const res = await fetch(`${getApiUrl()}/chat/conversations/${conversationId}?userId=${user.id}`, {
+    method: 'DELETE',
+  });
+  return res.json();
+}

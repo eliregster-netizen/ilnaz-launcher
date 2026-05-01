@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { getActiveUser, isAdmin } from '../../utils/auth';
 import { deleteMessage } from '../../utils/chat';
 
-const MessageBubble = ({ message, isOwn, onDelete }) => {
+const MessageBubble = ({ message, isOwn, onDelete, onImageClick }) => {
   const user = getActiveUser();
   const [showActions, setShowActions] = useState(false);
 
@@ -11,13 +11,33 @@ const MessageBubble = ({ message, isOwn, onDelete }) => {
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
+  const isImageUrl = (text) => {
+    return /https?:\/\/.*\.(png|jpg|jpeg|gif|webp|bmp)(\?.*)?$/i.test(text);
+  };
+
   const formatContent = (content) => {
     if (!content) return null;
-    let formatted = content;
-    formatted = formatted.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-    formatted = formatted.replace(/\*(.+?)\*/g, '<em>$1</em>');
-    formatted = formatted.replace(/`(.+?)`/g, '<code>$1</code>');
-    return { __html: formatted };
+    const parts = content.split(/(https?:\/\/\S+)/g);
+    return parts.map((part, i) => {
+      if (isImageUrl(part)) {
+        const isGif = part.toLowerCase().endsWith('.gif') || part.includes('.gif?');
+        return (
+          <img
+            key={i}
+            className={`msg-image-inline ${isGif ? 'msg-gif' : ''}`}
+            src={part}
+            alt="attachment"
+            onClick={() => onImageClick && onImageClick(part)}
+          />
+        );
+      }
+      if (!part.trim()) return null;
+      let formatted = part;
+      formatted = formatted.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+      formatted = formatted.replace(/\*(.+?)\*/g, '<em>$1</em>');
+      formatted = formatted.replace(/`(.+?)`/g, '<code>$1</code>');
+      return <span key={i} dangerouslySetInnerHTML={{ __html: formatted }} />;
+    });
   };
 
   const handleDelete = async () => {
@@ -25,6 +45,15 @@ const MessageBubble = ({ message, isOwn, onDelete }) => {
     await deleteMessage(message.id);
     if (onDelete) onDelete(message.id);
   };
+
+  if (message.is_system) {
+    return (
+      <div className="system-message">
+        <span>{message.content}</span>
+        <span className="msg-time">{formatTime(message.created_at)}</span>
+      </div>
+    );
+  }
 
   if (message.deleted) {
     return (
@@ -68,9 +97,14 @@ const MessageBubble = ({ message, isOwn, onDelete }) => {
               </button>
             </div>
           )}
-          <div className="msg-text" dangerouslySetInnerHTML={formatContent(message.content)} />
+          <div className="msg-text">{formatContent(message.content)}</div>
           {message.image && (
-            <img className="msg-image" src={message.image} alt="attachment" onClick={() => window.open(message.image, '_blank')} />
+            <img
+              className="msg-image"
+              src={message.image}
+              alt="attachment"
+              onClick={() => onImageClick && onImageClick(message.image)}
+            />
           )}
           {message.edited === 1 && <span className="msg-edited">(ред.)</span>}
         </div>

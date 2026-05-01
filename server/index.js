@@ -246,7 +246,13 @@ app.get('/api/admin/stats', requireAdmin, async (req, res) => {
 const activeCalls = {};
 
 io.on('connection', (socket) => {
-  socket.on('join', (userId) => socket.join(userId));
+  let currentUserId = null;
+
+  socket.on('join', (userId) => {
+    currentUserId = userId;
+    socket.join(userId);
+  });
+
   socket.on('join-conversation', (conversationId) => socket.join(conversationId));
   socket.on('leave-conversation', (conversationId) => socket.leave(conversationId));
   socket.on('send-message', async (data) => {
@@ -259,32 +265,36 @@ io.on('connection', (socket) => {
     io.to(conversationId).emit('new-message', { id: msgId, conversation_id: conversationId, sender_id: senderId, content: content || '', image: image || null, edited: false, deleted: false, created_at: new Date().toISOString(), nickname: sender.nickname, username: sender.username, avatar: sender.avatar });
   });
   socket.on('typing', (data) => socket.to(data.conversationId).emit('user-typing', data));
+
   socket.on('call-start', (data) => {
     activeCalls[data.conversationId] = {
       initiatorId: data.initiatorId,
-      members: [data.initiatorId, ...data.members],
+      joined: [data.initiatorId],
       createdAt: Date.now(),
     };
     io.to(data.conversationId).emit('call-incoming', {
       conversationId: data.conversationId,
       initiatorId: data.initiatorId,
-      members: [data.initiatorId, ...data.members],
     });
   });
+
   socket.on('call-join-request', (data) => {
     const call = activeCalls[data.conversationId];
-    if (call && !call.members.includes(data.userId)) {
-      call.members.push(data.userId);
-      socket.to(call.initiatorId).emit('call-peer-joined', {
-        conversationId: data.conversationId,
-        userId: data.userId,
-      });
+    if (call && !call.joined.includes(data.userId)) {
+      call.joined.push(data.userId);
       io.to(data.conversationId).emit('call-peer-joined', {
         conversationId: data.conversationId,
         userId: data.userId,
+        joined: call.joined,
+      });
+      socket.to(call.initiatorId).emit('call-peer-joined', {
+        conversationId: data.conversationId,
+        userId: data.userId,
+        joined: call.joined,
       });
     }
   });
+
   socket.on('call-offer', (data) => {
     socket.to(data.to).emit('call-offer', {
       from: data.from,
@@ -292,6 +302,7 @@ io.on('connection', (socket) => {
       sdp: data.sdp,
     });
   });
+
   socket.on('call-answer', (data) => {
     socket.to(data.to).emit('call-answer', {
       from: data.from,
@@ -299,20 +310,69 @@ io.on('connection', (socket) => {
       sdp: data.sdp,
     });
   });
+
   socket.on('call-signal', (data) => {
     socket.to(data.to).emit('call-signal', data);
   });
+
+  socket.on('call-mute', (data) => {
+    io.to(data.conversationId).emit('call-member-muted', {
+      userId: data.userId,
+      conversationId: data.conversationId,
+      muted: data.muted,
+    });
+  });
+
+  socket.on('call-leave', (data) => {
+    const call = activeCalls[data.conversationId];
+    if (call) {
+      call.joined = call.joined.filter(id => id !== data.userId);
+      io.to(data.conversationId).emit('call-peer-left', {
+        conversationId: data.conversationId,
+        userId: data.userId,
+        joined: call.joined,
+      });
+      if (call.joined.length === 0) {
+        delete activeCalls[data.conversationId];
+      } else if (data.userId === call.initiatorId && call.joined.length > 0) {
+        call.initiatorId = call.joined[0];
+        io.to(data.conversationId).emit('call-initiator-changed', {
+          conversationId: data.conversationId,
+          newInitiatorId: call.initiatorId,
+          joined: call.joined,
+        });
+      }
+    }
+  });
+
   socket.on('call-end', (data) => {
     delete activeCalls[data.conversationId];
     io.to(data.conversationId).emit('call-ended', {
       conversationId: data.conversationId,
     });
   });
+
   socket.on('disconnect', () => {
-    for (const convId in activeCalls) {
-      if (activeCalls[convId].members.some(m => m === socket.id)) {
-        delete activeCalls[convId];
-        io.to(convId).emit('call-ended', { conversationId: convId });
+    if (currentUserId) {
+      for (const convId in activeCalls) {
+        if (activeCalls[convId].joined.includes(currentUserId)) {
+          activeCalls[convId].joined = activeCalls[convId].joined.filter(id => id !== currentUserId);
+          io.to(convId).emit('call-peer-left', {
+            conversationId: convId,
+            userId: currentUserId,
+            joined: activeCalls[convId].joined,
+          });
+          if (activeCalls[convId].joined.length === 0) {
+            delete activeCalls[convId];
+          } else if (currentUserId === activeCalls[convId].initiatorId && activeCalls[convId].joined.length > 0) {
+            activeCalls[convId].initiatorId = activeCalls[convId].joined[0];
+            io.to(convId).emit('call-initiator-changed', {
+              conversationId: convId,
+              newInitiatorId: activeCalls[convId].initiatorId,
+              joined: activeCalls[convId].joined,
+            });
+          }
+        }
       }
     }
   });
