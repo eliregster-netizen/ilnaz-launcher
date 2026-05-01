@@ -214,6 +214,17 @@
   cursor: default;
 }
 
+.action-btn.pending.cancel-pending {
+  cursor: pointer;
+  border-color: rgba(255, 170, 0, 0.4);
+  color: #ffaa00;
+  background: rgba(255, 170, 0, 0.1);
+}
+
+.action-btn.pending.cancel-pending:hover {
+  background: rgba(255, 170, 0, 0.2);
+}
+
 .action-btn.remove-friend {
   background: rgba(255, 68, 102, 0.15);
   border: 1px solid rgba(255, 68, 102, 0.3);

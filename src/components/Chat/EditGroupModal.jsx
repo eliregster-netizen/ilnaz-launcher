@@ -1,21 +1,25 @@
 import { useState, useRef, useEffect } from 'react';
-import { editConversation, addMembers } from '../../utils/chat';
-import { getFriendsList } from '../../utils/auth';
+import { editConversation, addMembers, removeConversationMember } from '../../utils/chat';
+import { getFriendsList, getActiveUser } from '../../utils/auth';
 
 const EditGroupModal = ({ conversation, onClose, onUpdated }) => {
+  const user = getActiveUser();
   const [name, setName] = useState(conversation.name || '');
   const [description, setDescription] = useState(conversation.description || '');
   const [iconPreview, setIconPreview] = useState(conversation.icon);
   const [iconData, setIconData] = useState(null);
   const [saving, setSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState('settings'); // 'settings' or 'members'
+  const [activeTab, setActiveTab] = useState('settings');
   const [friends, setFriends] = useState([]);
   const [selectedFriends, setSelectedFriends] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [members, setMembers] = useState(conversation.members || []);
+  const [removingId, setRemovingId] = useState(null);
   const fileInputRef = useRef(null);
 
   useEffect(() => {
     loadFriends();
+    setMembers(conversation.members || []);
   }, []);
 
   const loadFriends = async () => {
@@ -52,6 +56,8 @@ const EditGroupModal = ({ conversation, onClose, onUpdated }) => {
     if (res.success) {
       if (onUpdated) onUpdated(res.conversation);
       onClose();
+    } else {
+      alert(res.error || 'Не удалось сохранить');
     }
   };
 
@@ -69,8 +75,32 @@ const EditGroupModal = ({ conversation, onClose, onUpdated }) => {
     if (data.success) {
       if (onUpdated) onUpdated(conversation);
       onClose();
+    } else {
+      alert(data.error || 'Не удалось добавить участников');
     }
   };
+
+  const handleRemoveMember = async (memberId) => {
+    if (memberId === conversation.creator_id) {
+      alert('Нельзя удалить создателя группы');
+      return;
+    }
+    if (!confirm('Удалить этого участника из группы?')) return;
+    setRemovingId(memberId);
+    const data = await removeConversationMember(conversation.id, memberId);
+    setRemovingId(null);
+    if (data.success) {
+      setMembers(prev => prev.filter(m => m.id !== memberId));
+      const removedUser = members.find(m => m.id === memberId);
+      if (removedUser && !friends.some(f => f.id === removedUser.id)) {
+        setFriends(prev => [...prev, removedUser]);
+      }
+    } else {
+      alert(data.error || 'Не удалось удалить участника');
+    }
+  };
+
+  const isCreator = conversation.creator_id === user?.id;
 
   return (
     <div className="members-modal-overlay" onClick={onClose}>
@@ -89,16 +119,8 @@ const EditGroupModal = ({ conversation, onClose, onUpdated }) => {
         {activeTab === 'settings' && (
           <>
             <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '16px' }}>
-              <div
-                className="edit-group-avatar"
-                onClick={() => fileInputRef.current?.click()}
-                style={{ cursor: 'pointer' }}
-              >
-                {iconPreview ? (
-                  <img src={iconPreview} alt="" />
-                ) : (
-                  <span>{(name || 'G').charAt(0).toUpperCase()}</span>
-                )}
+              <div className="edit-group-avatar" onClick={() => fileInputRef.current?.click()} style={{ cursor: 'pointer' }}>
+                {iconPreview ? <img src={iconPreview} alt="" /> : <span>{(name || 'G').charAt(0).toUpperCase()}</span>}
                 <div className="edit-avatar-overlay">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
                     <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h12l6 6z" />
@@ -113,39 +135,16 @@ const EditGroupModal = ({ conversation, onClose, onUpdated }) => {
             </div>
 
             <label style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '4px', display: 'block' }}>Название</label>
-            <input
-              className="chat-name-input"
-              placeholder="Название группы..."
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              style={{ width: '100%', marginBottom: '12px' }}
-            />
+            <input className="chat-name-input" placeholder="Название группы..." value={name} onChange={(e) => setName(e.target.value)} style={{ width: '100%', marginBottom: '12px' }} />
 
             <label style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '4px', display: 'block' }}>Описание</label>
-            <textarea
-              className="chat-name-input"
-              placeholder="Описание группы..."
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={3}
-              style={{ width: '100%', resize: 'none', fontFamily: 'inherit' }}
-            />
+            <textarea className="chat-name-input" placeholder="Описание группы..." value={description} onChange={(e) => setDescription(e.target.value)} rows={3} style={{ width: '100%', resize: 'none', fontFamily: 'inherit' }} />
 
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              style={{ display: 'none' }}
-              onChange={handleImageSelect}
-            />
+            <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleImageSelect} />
 
             <div className="modal-actions-row" style={{ marginTop: '16px' }}>
               <button className="modal-cancel-btn" onClick={onClose}>Отмена</button>
-              <button
-                className="modal-create-btn"
-                onClick={handleSave}
-                disabled={!name.trim() || saving}
-              >
+              <button className="modal-create-btn" onClick={handleSave} disabled={!name.trim() || saving}>
                 {saving ? 'Сохранение...' : 'Сохранить'}
               </button>
             </div>
@@ -154,42 +153,65 @@ const EditGroupModal = ({ conversation, onClose, onUpdated }) => {
 
         {activeTab === 'members' && (
           <>
-            {friends.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '20px', color: 'var(--text-muted)', fontSize: '13px' }}>
-                Все ваши друзья уже в этой группе
-              </div>
-            ) : (
-              <>
-                <div className="add-members-list">
-                  {friends.map(friend => (
-                    <div
-                      className={`add-member-item ${selectedFriends.includes(friend.id) ? 'selected' : ''}`}
-                      key={friend.id}
-                      onClick={() => toggleSelectFriend(friend.id)}
+            {/* Current members list with remove buttons */}
+            <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '8px' }}>
+              Текущие участники ({members.length})
+            </div>
+            <div className="add-members-list" style={{ maxHeight: '200px', overflowY: 'auto', marginBottom: '16px' }}>
+              {members.map(member => (
+                <div className="add-member-item" key={member.id}>
+                  <div className="add-member-avatar">
+                    {member.avatar ? <img src={member.avatar} alt="" /> : member.nickname?.charAt(0)}
+                  </div>
+                  <span className="add-member-name">
+                    {member.nickname}
+                    {member.id === conversation.creator_id && <span style={{ fontSize: '11px', color: 'var(--accent-primary)', marginLeft: '6px' }}>Создатель</span>}
+                  </span>
+                  {isCreator && member.id !== conversation.creator_id && member.id !== user?.id && (
+                    <button
+                      className="remove-member-btn"
+                      onClick={() => handleRemoveMember(member.id)}
+                      disabled={removingId === member.id}
+                      title="Удалить из группы"
                     >
-                      <div className="add-member-avatar">
-                        {friend.avatar ? <img src={friend.avatar} alt="" /> : friend.nickname?.charAt(0)}
-                      </div>
-                      <span className="add-member-name">{friend.nickname}</span>
-                      {selectedFriends.includes(friend.id) && (
-                        <span className="add-member-check">✓</span>
-                      )}
-                    </div>
-                  ))}
+                      {removingId === member.id ? '...' : '✕'}
+                    </button>
+                  )}
                 </div>
+              ))}
+            </div>
 
-                <div className="modal-actions-row" style={{ marginTop: '16px' }}>
-                  <button className="modal-cancel-btn" onClick={onClose}>Отмена</button>
-                  <button
-                    className="modal-create-btn"
-                    onClick={handleAddMembers}
-                    disabled={selectedFriends.length === 0 || loading}
-                  >
-                    {loading ? 'Добавление...' : `Добавить (${selectedFriends.length})`}
-                  </button>
+            {/* Add new members */}
+            <div style={{ borderTop: '1px solid var(--glass-border)', paddingTop: '16px' }}>
+              <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '8px' }}>
+                Добавить участников
+              </div>
+              {friends.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '12px', color: 'var(--text-muted)', fontSize: '13px' }}>
+                  Все ваши друзья уже в этой группе
                 </div>
-              </>
-            )}
+              ) : (
+                <>
+                  <div className="add-members-list">
+                    {friends.map(friend => (
+                      <div className={`add-member-item ${selectedFriends.includes(friend.id) ? 'selected' : ''}`} key={friend.id} onClick={() => toggleSelectFriend(friend.id)}>
+                        <div className="add-member-avatar">
+                          {friend.avatar ? <img src={friend.avatar} alt="" /> : friend.nickname?.charAt(0)}
+                        </div>
+                        <span className="add-member-name">{friend.nickname}</span>
+                        {selectedFriends.includes(friend.id) && <span className="add-member-check">✓</span>}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="modal-actions-row" style={{ marginTop: '16px' }}>
+                    <button className="modal-cancel-btn" onClick={onClose}>Отмена</button>
+                    <button className="modal-create-btn" onClick={handleAddMembers} disabled={selectedFriends.length === 0 || loading}>
+                      {loading ? 'Добавление...' : `Добавить (${selectedFriends.length})`}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           </>
         )}
       </div>

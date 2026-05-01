@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { searchUsers, sendFriendRequest, getPendingRequests, acceptFriendRequest, declineFriendRequest, removeFriend, getFriendsList, getSentRequests, getActiveUser } from '../utils/auth';
+import { searchUsers, sendFriendRequest, getPendingRequests, acceptFriendRequest, declineFriendRequest, removeFriend, getFriendsList, getSentRequests, getActiveUser, cancelFriendRequest } from '../utils/auth';
 import VerifyBadge from '../components/VerifyBadge/VerifyBadge';
 import './Friends.css';
 
@@ -75,6 +75,15 @@ const Friends = () => {
   const handleRemoveFriend = async (friendId) => {
     await removeFriend(friendId);
     loadFriends();
+  };
+
+  const handleCancelRequest = async (requestId) => {
+    const res = await cancelFriendRequest(requestId);
+    if (res.success) {
+      loadSentRequests();
+    } else {
+      alert(res.error || 'Не удалось отозвать заявку');
+    }
   };
 
   return (
@@ -208,7 +217,15 @@ const Friends = () => {
                     </div>
                     <span className="request-id">ID: {req.toId}</span>
                   </div>
-                  <span className="pending-label">Ожидание</span>
+                  <div className="request-actions">
+                    <span className="pending-label">Ожидание</span>
+                    <button className="decline-btn" onClick={() => handleCancelRequest(req.id)} title="Отозвать заявку">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <line x1="18" y1="6" x2="6" y2="18" />
+                        <line x1="6" y1="6" x2="18" y2="18" />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>

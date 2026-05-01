@@ -206,6 +206,15 @@ app.delete('/api/friends/decline/:requestId', authenticateToken, async (req, res
   res.json({ success: true });
 });
 
+// Cancel a sent friend request (only by the sender)
+app.delete('/api/friends/request/:requestId', authenticateToken, async (req, res) => {
+  const userId = req.userId;
+  const request = await friendRequests.findOne({ id: req.params.requestId, from_id: userId, status: 'pending' });
+  if (!request) return res.status(404).json({ error: 'Request not found or already processed' });
+  await friendRequests.updateOne({ id: request.id }, { $set: { status: 'cancelled' } });
+  res.json({ success: true });
+});
+
 app.delete('/api/friends/remove/:friendId', authenticateToken, async (req, res) => {
   const userId = req.userId;
   const friendId = req.params.friendId;
@@ -336,13 +345,24 @@ io.on('connection', (socket) => {
   socket.on('leave-conversation', (conversationId) => socket.leave(conversationId));
   socket.on('send-message', async (data) => {
     if (!currentUserId) return;
-    const { conversationId, content, image } = data;
+    const { conversationId, content, image, file, fileName, fileType, fileSize } = data;
     const member = await conversationMembers.findOne({ conversation_id: conversationId, user_id: currentUserId });
     if (!member) return;
     const msgId = generateId();
-    await messages.insertOne({ id: msgId, conversation_id: conversationId, sender_id: currentUserId, content: content || '', image: image || null, edited: false, deleted: false, created_at: new Date().toISOString() });
+    await messages.insertOne({
+      id: msgId, conversation_id: conversationId, sender_id: currentUserId,
+      content: content || '', image: image || null,
+      file: file || null, file_name: fileName || null, file_type: fileType || null, file_size: fileSize || null,
+      edited: false, deleted: false, created_at: new Date().toISOString()
+    });
     const sender = await getUser(currentUserId);
-    io.to(conversationId).emit('new-message', { id: msgId, conversation_id: conversationId, sender_id: currentUserId, content: content || '', image: image || null, edited: false, deleted: false, created_at: new Date().toISOString(), nickname: sender.nickname, username: sender.username, avatar: sender.avatar });
+    io.to(conversationId).emit('new-message', {
+      id: msgId, conversation_id: conversationId, sender_id: currentUserId,
+      content: content || '', image: image || null,
+      file: file || null, file_name: fileName || null, file_type: fileType || null, file_size: fileSize || null,
+      edited: false, deleted: false, created_at: new Date().toISOString(),
+      nickname: sender.nickname, username: sender.username, avatar: sender.avatar
+    });
   });
   socket.on('typing', (data) => socket.to(data.conversationId).emit('user-typing', data));
 
@@ -589,7 +609,11 @@ app.put('/api/chat/conversations/:conversationId/add-members', authenticateToken
   if (!newMemberIds || newMemberIds.length === 0) return res.status(400).json({ error: 'No members to add' });
   const member = await conversationMembers.findOne({ conversation_id: req.params.conversationId, user_id: req.userId });
   if (!member) return res.status(403).json({ error: 'Not a member' });
+  const conv = await conversations.findOne({ id: req.params.conversationId });
+  if (!conv || conv.type === 'private') return res.status(400).json({ error: 'Can only add members to groups' });
   for (const mid of newMemberIds) {
+    const alreadyMember = await conversationMembers.findOne({ conversation_id: req.params.conversationId, user_id: mid });
+    if (alreadyMember) continue;
     await conversationMembers.insertOne({ conversation_id: req.params.conversationId, user_id: mid, last_read_msg: 0, joined_at: new Date().toISOString() });
     const newMember = await getUser(mid);
     const msgId = generateId();
@@ -608,6 +632,40 @@ app.put('/api/chat/conversations/:conversationId/add-members', authenticateToken
     io.to(mid).emit('new-conversation', { conversationId: req.params.conversationId, conversation: await conversations.findOne({ id: req.params.conversationId }) });
   }
   io.to(req.params.conversationId).emit('members-added', { conversationId: req.params.conversationId, newMemberIds });
+  res.json({ success: true });
+});
+
+// Remove a member from a group conversation (creator or admin only)
+app.delete('/api/chat/conversations/:conversationId/members/:memberId', authenticateToken, async (req, res) => {
+  const conv = await conversations.findOne({ id: req.params.conversationId });
+  if (!conv) return res.status(404).json({ error: 'Conversation not found' });
+  if (conv.type === 'private') return res.status(400).json({ error: 'Cannot remove members from private chat' });
+  const actor = await conversationMembers.findOne({ conversation_id: req.params.conversationId, user_id: req.userId });
+  if (!actor) return res.status(403).json({ error: 'Not a member' });
+  // Only creator can remove members, or member can remove themselves
+  const targetId = req.params.memberId;
+  const isSelf = targetId === req.userId;
+  const isCreator = conv.creator_id === req.userId;
+  if (!isSelf && !isCreator) return res.status(403).json({ error: 'Only creator can remove other members' });
+  // Prevent creator from removing themselves (they must transfer or delete)
+  if (isSelf && isCreator) return res.status(400).json({ error: 'Creator cannot leave. Transfer ownership or delete the group' });
+  await conversationMembers.deleteOne({ conversation_id: req.params.conversationId, user_id: targetId });
+  const removedUser = await getUser(targetId);
+  const msgId = generateId();
+  await messages.insertOne({
+    id: msgId, conversation_id: req.params.conversationId, sender_id: 'system',
+    content: `${removedUser ? removedUser.nickname : 'Пользователь'} покинул группу`,
+    image: null, edited: false, deleted: false, is_system: true,
+    created_at: new Date().toISOString()
+  });
+  io.to(req.params.conversationId).emit('new-message', {
+    id: msgId, conversation_id: req.params.conversationId, sender_id: 'system',
+    content: `${removedUser ? removedUser.nickname : 'Пользователь'} покинул группу`,
+    image: null, edited: false, deleted: false, is_system: true,
+    created_at: new Date().toISOString(), nickname: 'System', username: 'system', avatar: null
+  });
+  io.to(req.params.conversationId).emit('member-removed', { conversationId: req.params.conversationId, memberId: targetId });
+  io.to(targetId).emit('conversation-deleted', { conversationId: req.params.conversationId });
   res.json({ success: true });
 });
 

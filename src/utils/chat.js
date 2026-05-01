@@ -78,10 +78,10 @@ export async function deleteMessage(messageId) {
   return res.json();
 }
 
-export function sendMessage(conversationId, content, image = null) {
+export function sendMessage(conversationId, content, image = null, file = null, fileName = null, fileType = null, fileSize = null) {
   const user = getActiveUser();
   if (!user || !socket) return;
-  socket.emit('send-message', { conversationId, content, image });
+  socket.emit('send-message', { conversationId, content, image, file, fileName, fileType, fileSize });
 }
 
 export function joinConversation(conversationId) {
@@ -130,6 +130,14 @@ export async function leaveConversationAPI(conversationId) {
   const res = await fetch(`${getApiUrl()}/chat/conversations/${conversationId}/leave`, {
     method: 'POST',
     headers: authHeaders(),
+  });
+  return res.json();
+}
+
+export async function removeConversationMember(conversationId, memberId) {
+  const res = await fetch(`${getApiUrl()}/chat/conversations/${conversationId}/members/${memberId}`, {
+    method: 'DELETE',
+    headers: authHeaders(false),
   });
   return res.json();
 }

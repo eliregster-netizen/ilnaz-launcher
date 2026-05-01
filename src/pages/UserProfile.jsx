@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getUserById, sendFriendRequest, removeFriend, getActiveUser, isAdmin } from '../utils/auth';
+import { getUserById, sendFriendRequest, removeFriend, getActiveUser, isAdmin, cancelFriendRequest, getSentRequests } from '../utils/auth';
 import { getApiUrl } from '../config';
 import VerifyBadge from '../components/VerifyBadge/VerifyBadge';
 import './UserProfile.css';
@@ -25,13 +25,26 @@ const UserProfile = () => {
     }
   }, [user, currentUser]);
 
-  const checkFriendStatus = () => {
+  const checkFriendStatus = async () => {
     if (!user || !currentUser) return;
     const isFriend = (user.friends || []).includes(currentUser.id);
     const isMe = user.id === currentUser.id;
-    if (isMe) setFriendStatus('me');
-    else if (isFriend) setFriendStatus('friends');
-    else setFriendStatus('none');
+    if (isMe) {
+      setFriendStatus('me');
+      return;
+    }
+    if (isFriend) {
+      setFriendStatus('friends');
+      return;
+    }
+    // Check if there's a pending sent request to this user
+    const sent = await getSentRequests();
+    const hasPending = sent.some(r => r.toId === user.id);
+    if (hasPending) {
+      setFriendStatus('pending');
+      return;
+    }
+    setFriendStatus('none');
   };
 
   const loadUser = async () => {
@@ -68,6 +81,17 @@ const UserProfile = () => {
     setActionLoading(true);
     await removeFriend(userId);
     setFriendStatus('none');
+    setActionLoading(false);
+  };
+
+  const handleCancelRequest = async () => {
+    setActionLoading(true);
+    const sent = await getSentRequests();
+    const req = sent.find(r => r.toId === userId);
+    if (req) {
+      const res = await cancelFriendRequest(req.id);
+      if (res.success) setFriendStatus('none');
+    }
     setActionLoading(false);
   };
 
@@ -139,8 +163,8 @@ const UserProfile = () => {
                   </button>
                 )}
                 {friendStatus === 'pending' && (
-                  <button className="action-btn pending" disabled>
-                    Заявка отправлена
+                  <button className="action-btn pending cancel-pending" onClick={handleCancelRequest} disabled={actionLoading}>
+                    Отозвать заявку
                   </button>
                 )}
                 {friendStatus === 'none' && (

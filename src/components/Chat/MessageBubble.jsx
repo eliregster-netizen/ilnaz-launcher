@@ -16,6 +16,14 @@ const MessageBubble = ({ message, isOwn, onDelete, onImageClick }) => {
     return /https?:\/\/.*\.(png|jpg|jpeg|gif|webp|bmp)(\?.*)?$/i.test(text);
   };
 
+  const isVideoUrl = (text) => {
+    return /https?:\/\/.*\.(mp4|webm|ogg|mov)(\?.*)?$/i.test(text);
+  };
+
+  const isGifUrl = (text) => {
+    return /https?:\/\/.*\.(gif)(\?.*)?$/i.test(text) || text.includes('.gif?');
+  };
+
   const escapeHtml = (text) => {
     const div = document.createElement('div');
     div.appendChild(document.createTextNode(text));
@@ -53,21 +61,45 @@ const MessageBubble = ({ message, isOwn, onDelete, onImageClick }) => {
     if (!content) return null;
     const parts = content.split(/(https?:\/\/\S+)/g);
     return parts.map((part, i) => {
-      if (isImageUrl(part)) {
-        const isGif = part.toLowerCase().endsWith('.gif') || part.includes('.gif?');
+      if (isGifUrl(part)) {
         return (
-          <img
-            key={i}
-            className={`msg-image-inline ${isGif ? 'msg-gif' : ''}`}
-            src={part}
-            alt="attachment"
-            onClick={() => onImageClick && onImageClick(part)}
-          />
+          <img key={i} className="msg-image-inline msg-gif" src={part} alt="gif"
+            onClick={() => onImageClick && onImageClick(part)} />
+        );
+      }
+      if (isImageUrl(part)) {
+        return (
+          <img key={i} className="msg-image-inline" src={part} alt="attachment"
+            onClick={() => onImageClick && onImageClick(part)} />
+        );
+      }
+      if (isVideoUrl(part)) {
+        return (
+          <video key={i} className="msg-video-inline" controls playsInline>
+            <source src={part} />
+          </video>
         );
       }
       if (!part.trim()) return null;
       return <span key={i}>{formatInline(part)}</span>;
     });
+  };
+
+  const formatFileSize = (bytes) => {
+    if (!bytes) return '';
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  };
+
+  const getFileIcon = (type) => {
+    if (!type) return '📄';
+    if (type.startsWith('video/')) return '🎬';
+    if (type.startsWith('audio/')) return '🎵';
+    if (type.startsWith('application/pdf')) return '📕';
+    if (type.startsWith('application/zip') || type.startsWith('application/x-rar')) return '📦';
+    if (type.startsWith('text/')) return '📝';
+    return '📄';
   };
 
   const handleDelete = async () => {
@@ -128,6 +160,8 @@ const MessageBubble = ({ message, isOwn, onDelete, onImageClick }) => {
             </div>
           )}
           <div className="msg-text">{formatContent(message.content)}</div>
+
+          {/* Inline image from URL in content */}
           {message.image && (
             <img
               className="msg-image"
@@ -136,6 +170,30 @@ const MessageBubble = ({ message, isOwn, onDelete, onImageClick }) => {
               onClick={() => onImageClick && onImageClick(message.image)}
             />
           )}
+
+          {/* Video file attachment */}
+          {message.file && message.file_type && message.file_type.startsWith('video/') && (
+            <video className="msg-video" controls playsInline preload="metadata">
+              <source src={message.file} type={message.file_type} />
+            </video>
+          )}
+
+          {/* Generic file attachment (non-video, non-image) */}
+          {message.file && !message.file_type?.startsWith('video/') && !message.file_type?.startsWith('image/') && (
+            <div className="msg-file-attachment" onClick={() => {
+              const a = document.createElement('a');
+              a.href = message.file;
+              a.download = message.file_name || 'file';
+              a.click();
+            }}>
+              <span className="msg-file-icon">{getFileIcon(message.file_type)}</span>
+              <div className="msg-file-info">
+                <span className="msg-file-name">{message.file_name || 'Файл'}</span>
+                <span className="msg-file-size">{formatFileSize(message.file_size)}</span>
+              </div>
+            </div>
+          )}
+
           {message.edited === 1 && <span className="msg-edited">(ред.)</span>}
         </div>
         <div className="msg-time">{formatTime(message.created_at)}</div>

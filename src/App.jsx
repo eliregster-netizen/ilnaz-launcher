@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Routes, Route, useLocation } from 'react-router-dom';
+import { Routes, Route, useLocation, useParams } from 'react-router-dom';
 import Sidebar from './components/Sidebar/Sidebar';
 import Auth from './components/Auth/Auth';
 import Home from './pages/Home';
@@ -17,6 +17,11 @@ import {
   logout,
 } from './utils/auth';
 import './styles/global.css';
+
+const UserProfileRoute = () => {
+  const { userId } = useParams();
+  return <UserProfile key={userId} />;
+};
 
 const App = () => {
   const [profile, setProfile] = useState(null);
@@ -91,7 +96,7 @@ const App = () => {
           <Route path="/" element={<Home profile={profile} />} />
           <Route path="/library" element={<Library profile={profile} />} />
           <Route path="/profile" element={<Profile profile={profile} onUpdate={handleProfileUpdate} onLogout={handleLogout} />} />
-          <Route path="/profile/:userId" element={<UserProfile />} />
+          <Route path="/profile/:userId" element={<UserProfileRoute />} />
           <Route path="/friends" element={<Friends />} />
           <Route path="/chat" element={<Chat />} />
           <Route path="/admin" element={<Admin />} />

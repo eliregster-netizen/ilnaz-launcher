@@ -147,6 +147,15 @@ export async function declineFriendRequest(requestId) {
   return res.json();
 }
 
+export async function cancelFriendRequest(requestId) {
+  if (!activeUser) return null;
+  const res = await fetch(`${getApiUrl()}/friends/request/${requestId}`, {
+    method: 'DELETE',
+    headers: authHeaders(),
+  });
+  return res.json();
+}
+
 export async function removeFriend(friendId) {
   if (!activeUser) return null;
   const res = await fetch(`${getApiUrl()}/friends/remove/${friendId}`, {

@@ -530,6 +530,15 @@ const Chat = () => {
       if (conversationId === activeConvRef.current?.id) { setActiveConv(prev => ({ ...prev, ...conversation })); }
       debouncedLoadConversations();
     });
+    socket.on('member-removed', ({ conversationId, memberId }) => {
+      if (conversationId === activeConvRef.current?.id) {
+        setActiveConv(prev => {
+          if (!prev) return null;
+          return { ...prev, members: (prev.members || []).filter(m => m.id !== memberId) };
+        });
+      }
+      debouncedLoadConversations();
+    });
 
     socket.on('call-incoming', (data) => {
       // Звонки временно отключены
@@ -578,6 +587,7 @@ const Chat = () => {
       socket.off('user-typing');
       socket.off('message-deleted');
       socket.off('conversation-updated');
+      socket.off('member-removed');
       socket.off('call-incoming');
       socket.off('call-offer');
       socket.off('call-answer');

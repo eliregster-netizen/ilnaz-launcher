@@ -1621,3 +1621,152 @@
 .settings-save-btn:hover {
   opacity: 0.9;
 }
+
+/* === File preview in message input === */
+.file-preview {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  margin-bottom: 8px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: 10px;
+  position: relative;
+}
+
+.file-preview-icon {
+  font-size: 24px;
+  flex-shrink: 0;
+}
+
+.file-preview-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.file-preview-name {
+  font-size: 13px;
+  color: var(--text-primary);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.file-preview-size {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.file-preview-remove {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.file-preview-remove:hover {
+  background: rgba(255, 68, 68, 0.2);
+  color: #ff4444;
+}
+
+/* === File attachment in message bubble === */
+.msg-file-attachment {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  margin-top: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--glass-border);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.msg-file-attachment:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.msg-file-icon {
+  font-size: 28px;
+  flex-shrink: 0;
+}
+
+.msg-file-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.msg-file-name {
+  font-size: 13px;
+  color: var(--text-primary);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.msg-file-size {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+/* === Video in message bubble === */
+.msg-video {
+  max-width: 100%;
+  max-height: 400px;
+  border-radius: 8px;
+  margin-top: 8px;
+  background: #000;
+}
+
+.msg-video-inline {
+  max-width: 100%;
+  max-height: 300px;
+  border-radius: 8px;
+  margin-top: 4px;
+  background: #000;
+}
+
+/* === Remove member button === */
+.remove-member-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 68, 68, 0.1);
+  color: #ff4444;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.remove-member-btn:hover {
+  background: rgba(255, 68, 68, 0.25);
+}
+
+.remove-member-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
