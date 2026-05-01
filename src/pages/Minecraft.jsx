@@ -42,11 +42,16 @@ const Minecraft = () => {
       setIsRunning(true);
     });
 
+    const unsubExited = window.electron.onMinecraftExited(() => {
+      setIsRunning(false);
+    });
+
     return () => {
       unsubProgress();
       unsubComplete();
       unsubPlaytime();
       unsubLaunched();
+      unsubExited();
     };
   }, []);
 
@@ -55,6 +60,7 @@ const Minecraft = () => {
     setStatus(s);
     setSettings(s.settings || { ram: 2048, javaArgs: '', username: user?.username || 'Player', fullscreen: false });
     if (s.playtime) setLivePlaytime(s.playtime);
+    if (s.isRunning) setIsRunning(true);
     setLoading(false);
   };
 
@@ -77,7 +83,9 @@ const Minecraft = () => {
 
     if (result.success) {
       setIsRunning(true);
-      await updateUserStats(user.id, { games_played: (status?.playtime?.totalSeconds === 0 ? 1 : undefined) });
+      if (status?.playtime?.totalSeconds === 0) {
+        await updateUserStats(user.id, { games_played: 1 });
+      }
     }
   };
 

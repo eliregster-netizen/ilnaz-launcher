@@ -23,6 +23,7 @@ let downloadState = { downloading: false, progress: 0, total: 0, current: '', st
 let minecraftProcess = null;
 let playTimer = null;
 let totalPlaySeconds = 0;
+let onMinecraftExit = null;
 
 function getSettings() {
   try {
@@ -38,7 +39,7 @@ function saveSettings(s) {
 }
 
 function getStatus() {
-  if (!fs.existsSync(MC_DIR)) return { installed: false };
+  if (!fs.existsSync(MC_DIR)) return { installed: false, isRunning: false };
   const jarPath = path.join(MC_DIR, 'versions', VERSION, `${VERSION}.jar`);
   const nativesDir = path.join(MC_DIR, 'natives');
   const installed = fs.existsSync(jarPath) && fs.existsSync(nativesDir);
@@ -46,6 +47,7 @@ function getStatus() {
   const playtime = getPlaytime();
   return {
     installed,
+    isRunning: minecraftProcess !== null,
     version: VERSION,
     settings,
     playtime,
@@ -493,6 +495,10 @@ async function launchMinecraft(username, onProcessStart) {
     savePlaytime();
     minecraftProcess = null;
     console.log('[MC] Process exited with code', code);
+    if (onMinecraftExit) {
+      onMinecraftExit();
+      onMinecraftExit = null;
+    }
   });
 
   minecraftProcess = child;
@@ -520,6 +526,10 @@ function isMinecraftRunning() {
   return minecraftProcess !== null;
 }
 
+function setOnExit(cb) {
+  onMinecraftExit = cb;
+}
+
 module.exports = {
   getStatus,
   downloadMinecraft,
@@ -531,4 +541,5 @@ module.exports = {
   isMinecraftRunning,
   getMinecraftProcess,
   updatePlaytimeUI,
+  setOnExit,
 };

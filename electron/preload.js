@@ -16,8 +16,29 @@ contextBridge.exposeInMainWorld('electron', {
   cancelMinecraftDownload: () => ipcRenderer.invoke('cancel-minecraft-download'),
   launchMinecraft: (username, userId) => ipcRenderer.invoke('launch-minecraft', username, userId),
   saveMinecraftSettings: (settings) => ipcRenderer.invoke('save-minecraft-settings', settings),
-  onMinecraftDownloadProgress: (cb) => ipcRenderer.on('minecraft-download-progress', (_e, data) => cb(data)),
-  onMinecraftDownloadComplete: (cb) => ipcRenderer.on('minecraft-download-complete', (_e, data) => cb(data)),
-  onMinecraftPlaytime: (cb) => ipcRenderer.on('minecraft-playtime', (_e, data) => cb(data)),
-  onMinecraftLaunched: (cb) => ipcRenderer.on('minecraft-launched', (_e, data) => cb(data)),
+  onMinecraftDownloadProgress: (cb) => {
+    const handler = (_e, data) => cb(data);
+    ipcRenderer.on('minecraft-download-progress', handler);
+    return () => ipcRenderer.removeListener('minecraft-download-progress', handler);
+  },
+  onMinecraftDownloadComplete: (cb) => {
+    const handler = (_e, data) => cb(data);
+    ipcRenderer.on('minecraft-download-complete', handler);
+    return () => ipcRenderer.removeListener('minecraft-download-complete', handler);
+  },
+  onMinecraftPlaytime: (cb) => {
+    const handler = (_e, data) => cb(data);
+    ipcRenderer.on('minecraft-playtime', handler);
+    return () => ipcRenderer.removeListener('minecraft-playtime', handler);
+  },
+  onMinecraftLaunched: (cb) => {
+    const handler = (_e, data) => cb(data);
+    ipcRenderer.on('minecraft-launched', handler);
+    return () => ipcRenderer.removeListener('minecraft-launched', handler);
+  },
+  onMinecraftExited: (cb) => {
+    const handler = (_e, data) => cb(data);
+    ipcRenderer.on('minecraft-exited', handler);
+    return () => ipcRenderer.removeListener('minecraft-exited', handler);
+  },
 });

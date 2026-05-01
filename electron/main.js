@@ -151,6 +151,11 @@ ipcMain.handle('cancel-minecraft-download', () => {
 ipcMain.handle('launch-minecraft', async (_event, username, userId) => {
   if (mc.isMinecraftRunning()) return { success: false, error: 'Already running' };
 
+  mc.setOnExit(() => {
+    mainWindow.webContents.send('minecraft-exited', {});
+    updatePresence('online', 'В главном меню', false);
+  });
+
   const result = await mc.launchMinecraft(username, (totalSeconds) => {
     const hours = Math.floor(totalSeconds / 3600);
     const minutes = Math.floor((totalSeconds % 3600) / 60);
