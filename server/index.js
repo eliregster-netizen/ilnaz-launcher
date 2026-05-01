@@ -243,6 +243,8 @@ app.get('/api/admin/stats', requireAdmin, async (req, res) => {
   });
 });
 
+const activeCalls = {};
+
 io.on('connection', (socket) => {
   socket.on('join', (userId) => socket.join(userId));
   socket.on('join-conversation', (conversationId) => socket.join(conversationId));
@@ -257,7 +259,63 @@ io.on('connection', (socket) => {
     io.to(conversationId).emit('new-message', { id: msgId, conversation_id: conversationId, sender_id: senderId, content: content || '', image: image || null, edited: false, deleted: false, created_at: new Date().toISOString(), nickname: sender.nickname, username: sender.username, avatar: sender.avatar });
   });
   socket.on('typing', (data) => socket.to(data.conversationId).emit('user-typing', data));
-  socket.on('disconnect', () => {});
+  socket.on('call-start', (data) => {
+    activeCalls[data.conversationId] = {
+      initiatorId: data.initiatorId,
+      members: [data.initiatorId, ...data.members],
+      createdAt: Date.now(),
+    };
+    io.to(data.conversationId).emit('call-incoming', {
+      conversationId: data.conversationId,
+      initiatorId: data.initiatorId,
+      members: [data.initiatorId, ...data.members],
+    });
+  });
+  socket.on('call-join-request', (data) => {
+    const call = activeCalls[data.conversationId];
+    if (call && !call.members.includes(data.userId)) {
+      call.members.push(data.userId);
+      socket.to(call.initiatorId).emit('call-peer-joined', {
+        conversationId: data.conversationId,
+        userId: data.userId,
+      });
+      io.to(data.conversationId).emit('call-peer-joined', {
+        conversationId: data.conversationId,
+        userId: data.userId,
+      });
+    }
+  });
+  socket.on('call-offer', (data) => {
+    socket.to(data.to).emit('call-offer', {
+      from: data.from,
+      conversationId: data.conversationId,
+      sdp: data.sdp,
+    });
+  });
+  socket.on('call-answer', (data) => {
+    socket.to(data.to).emit('call-answer', {
+      from: data.from,
+      conversationId: data.conversationId,
+      sdp: data.sdp,
+    });
+  });
+  socket.on('call-signal', (data) => {
+    socket.to(data.to).emit('call-signal', data);
+  });
+  socket.on('call-end', (data) => {
+    delete activeCalls[data.conversationId];
+    io.to(data.conversationId).emit('call-ended', {
+      conversationId: data.conversationId,
+    });
+  });
+  socket.on('disconnect', () => {
+    for (const convId in activeCalls) {
+      if (activeCalls[convId].members.some(m => m === socket.id)) {
+        delete activeCalls[convId];
+        io.to(convId).emit('call-ended', { conversationId: convId });
+      }
+    }
+  });
 });
 
 app.post('/api/chat/conversations', async (req, res) => {
@@ -360,7 +418,24 @@ app.put('/api/chat/conversations/:conversationId/add-members', async (req, res) 
   if (!newMemberIds || newMemberIds.length === 0) return res.status(400).json({ error: 'No members to add' });
   const member = await conversationMembers.findOne({ conversation_id: req.params.conversationId, user_id: userId });
   if (!member) return res.status(403).json({ error: 'Not a member' });
-  for (const mid of newMemberIds) await conversationMembers.insertOne({ conversation_id: req.params.conversationId, user_id: mid, last_read_msg: 0, joined_at: new Date().toISOString() });
+  for (const mid of newMemberIds) {
+    await conversationMembers.insertOne({ conversation_id: req.params.conversationId, user_id: mid, last_read_msg: 0, joined_at: new Date().toISOString() });
+    const newMember = await getUser(mid);
+    const msgId = generateId();
+    await messages.insertOne({
+      id: msgId, conversation_id: req.params.conversationId, sender_id: 'system',
+      content: `${newMember ? newMember.nickname : 'Пользователь'} был добавлен сюда`,
+      image: null, edited: false, deleted: false, is_system: true,
+      created_at: new Date().toISOString()
+    });
+    io.to(req.params.conversationId).emit('new-message', {
+      id: msgId, conversation_id: req.params.conversationId, sender_id: 'system',
+      content: `${newMember ? newMember.nickname : 'Пользователь'} был добавлен сюда`,
+      image: null, edited: false, deleted: false, is_system: true,
+      created_at: new Date().toISOString(), nickname: 'System', username: 'system', avatar: null
+    });
+    io.to(mid).emit('new-conversation', { conversationId: req.params.conversationId, conversation: await conversations.findOne({ id: req.params.conversationId }) });
+  }
   io.to(req.params.conversationId).emit('members-added', { conversationId: req.params.conversationId, newMemberIds });
   res.json({ success: true });
 });
@@ -379,6 +454,18 @@ app.put('/api/chat/conversations/:conversationId/edit', async (req, res) => {
   const updated = await conversations.findOne({ id: req.params.conversationId });
   io.to(req.params.conversationId).emit('conversation-updated', { conversationId: req.params.conversationId, conversation: updated });
   res.json({ success: true, conversation: updated });
+});
+
+app.delete('/api/chat/conversations/:conversationId', async (req, res) => {
+  const { userId } = req.query;
+  const conv = await conversations.findOne({ id: req.params.conversationId });
+  if (!conv) return res.status(404).json({ error: 'Conversation not found' });
+  if (conv.creator_id !== userId) return res.status(403).json({ error: 'Only creator can delete' });
+  await messages.deleteMany({ conversation_id: req.params.conversationId });
+  await conversationMembers.deleteMany({ conversation_id: req.params.conversationId });
+  await conversations.deleteOne({ id: req.params.conversationId });
+  io.to(req.params.conversationId).emit('conversation-deleted', { conversationId: req.params.conversationId });
+  res.json({ success: true });
 });
 
 const PORT = process.env.PORT || 3001;
