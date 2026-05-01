@@ -266,15 +266,22 @@ io.on('connection', (socket) => {
   });
   socket.on('typing', (data) => socket.to(data.conversationId).emit('user-typing', data));
 
-  socket.on('call-start', (data) => {
+  socket.on('call-start', async (data) => {
+    const conv = await conversations.findOne({ id: data.conversationId });
+    const memberIds = conv ? (conv.members || []).map(m => m.id) : [];
     activeCalls[data.conversationId] = {
       initiatorId: data.initiatorId,
       joined: [data.initiatorId],
+      memberIds: memberIds,
       createdAt: Date.now(),
     };
-    io.to(data.conversationId).emit('call-incoming', {
-      conversationId: data.conversationId,
-      initiatorId: data.initiatorId,
+    memberIds.forEach(mid => {
+      if (mid !== data.initiatorId) {
+        io.to(mid).emit('call-incoming', {
+          conversationId: data.conversationId,
+          initiatorId: data.initiatorId,
+        });
+      }
     });
   });
 
@@ -282,12 +289,7 @@ io.on('connection', (socket) => {
     const call = activeCalls[data.conversationId];
     if (call && !call.joined.includes(data.userId)) {
       call.joined.push(data.userId);
-      io.to(data.conversationId).emit('call-peer-joined', {
-        conversationId: data.conversationId,
-        userId: data.userId,
-        joined: call.joined,
-      });
-      socket.to(call.initiatorId).emit('call-peer-joined', {
+      io.to(call.initiatorId).emit('call-peer-joined', {
         conversationId: data.conversationId,
         userId: data.userId,
         joined: call.joined,
@@ -296,7 +298,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('call-offer', (data) => {
-    socket.to(data.to).emit('call-offer', {
+    io.to(data.to).emit('call-offer', {
       from: data.from,
       conversationId: data.conversationId,
       sdp: data.sdp,
@@ -304,7 +306,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('call-answer', (data) => {
-    socket.to(data.to).emit('call-answer', {
+    io.to(data.to).emit('call-answer', {
       from: data.from,
       conversationId: data.conversationId,
       sdp: data.sdp,
@@ -312,44 +314,50 @@ io.on('connection', (socket) => {
   });
 
   socket.on('call-signal', (data) => {
-    socket.to(data.to).emit('call-signal', data);
+    io.to(data.to).emit('call-signal', data);
   });
 
   socket.on('call-mute', (data) => {
-    io.to(data.conversationId).emit('call-member-muted', {
-      userId: data.userId,
-      conversationId: data.conversationId,
-      muted: data.muted,
-    });
+    const call = activeCalls[data.conversationId];
+    if (call) {
+      call.joined.forEach(mid => {
+        if (mid !== data.userId) io.to(mid).emit('call-member-muted', { userId: data.userId, muted: data.muted });
+      });
+    }
   });
 
   socket.on('call-leave', (data) => {
     const call = activeCalls[data.conversationId];
     if (call) {
       call.joined = call.joined.filter(id => id !== data.userId);
-      io.to(data.conversationId).emit('call-peer-left', {
-        conversationId: data.conversationId,
-        userId: data.userId,
-        joined: call.joined,
+      call.joined.forEach(mid => {
+        io.to(mid).emit('call-peer-left', {
+          conversationId: data.conversationId,
+          userId: data.userId,
+          joined: call.joined,
+        });
       });
       if (call.joined.length === 0) {
         delete activeCalls[data.conversationId];
       } else if (data.userId === call.initiatorId && call.joined.length > 0) {
         call.initiatorId = call.joined[0];
-        io.to(data.conversationId).emit('call-initiator-changed', {
-          conversationId: data.conversationId,
-          newInitiatorId: call.initiatorId,
-          joined: call.joined,
+        call.joined.forEach(mid => {
+          io.to(mid).emit('call-initiator-changed', {
+            conversationId: data.conversationId,
+            newInitiatorId: call.initiatorId,
+            joined: call.joined,
+          });
         });
       }
     }
   });
 
   socket.on('call-end', (data) => {
+    const call = activeCalls[data.conversationId];
+    if (call) {
+      call.joined.forEach(mid => io.to(mid).emit('call-ended', { conversationId: data.conversationId }));
+    }
     delete activeCalls[data.conversationId];
-    io.to(data.conversationId).emit('call-ended', {
-      conversationId: data.conversationId,
-    });
   });
 
   socket.on('disconnect', () => {
@@ -357,19 +365,23 @@ io.on('connection', (socket) => {
       for (const convId in activeCalls) {
         if (activeCalls[convId].joined.includes(currentUserId)) {
           activeCalls[convId].joined = activeCalls[convId].joined.filter(id => id !== currentUserId);
-          io.to(convId).emit('call-peer-left', {
-            conversationId: convId,
-            userId: currentUserId,
-            joined: activeCalls[convId].joined,
+          activeCalls[convId].joined.forEach(mid => {
+            io.to(mid).emit('call-peer-left', {
+              conversationId: convId,
+              userId: currentUserId,
+              joined: activeCalls[convId].joined,
+            });
           });
           if (activeCalls[convId].joined.length === 0) {
             delete activeCalls[convId];
           } else if (currentUserId === activeCalls[convId].initiatorId && activeCalls[convId].joined.length > 0) {
             activeCalls[convId].initiatorId = activeCalls[convId].joined[0];
-            io.to(convId).emit('call-initiator-changed', {
-              conversationId: convId,
-              newInitiatorId: activeCalls[convId].initiatorId,
-              joined: activeCalls[convId].joined,
+            activeCalls[convId].joined.forEach(mid => {
+              io.to(mid).emit('call-initiator-changed', {
+                conversationId: convId,
+                newInitiatorId: activeCalls[convId].initiatorId,
+                joined: activeCalls[convId].joined,
+              });
             });
           }
         }
