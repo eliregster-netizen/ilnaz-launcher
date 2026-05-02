@@ -33,7 +33,7 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 const MONGO_URI = process.env.MONGO_URI;
 if (!MONGO_URI) { console.error('MONGO_URI not set!'); process.exit(1); }
 
-let db, users, friendRequests, conversations, conversationMembers, messages;
+let db, users, friendRequests, conversations, conversationMembers, messages, publicThemes;
 
 async function connectDB() {
   const client = new MongoClient(MONGO_URI);
@@ -44,6 +44,7 @@ async function connectDB() {
   conversations = db.collection('conversations');
   conversationMembers = db.collection('conversation_members');
   messages = db.collection('messages');
+  publicThemes = db.collection('public_themes');
   console.log('MongoDB connected');
 }
 
@@ -713,6 +714,60 @@ app.delete('/api/chat/conversations/:conversationId', authenticateToken, async (
   await conversations.deleteOne({ id: req.params.conversationId });
   io.to(req.params.conversationId).emit('conversation-deleted', { conversationId: req.params.conversationId });
   res.json({ success: true });
+});
+
+// --- Themes API ---
+
+app.get('/api/themes/public', async (req, res) => {
+  try {
+    const themes = await publicThemes.find().sort({ created_at: -1 }).toArray();
+    res.json({ themes });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/themes/publish', authenticateToken, async (req, res) => {
+  try {
+    const { name, version, description, launcherTitle, colors, data } = req.body;
+    if (!name) return res.status(400).json({ error: 'Theme name required' });
+    const user = await getUser(req.userId);
+    const theme = {
+      id: generateId(),
+      name,
+      author: user ? user.nickname : 'Аноним',
+      authorId: req.userId,
+      version: version || '1.0',
+      description: description || '',
+      launcherTitle: launcherTitle || null,
+      colors: colors || {},
+      data: data || null,
+      created_at: new Date().toISOString(),
+      downloads: 0,
+    };
+    await publicThemes.insertOne(theme);
+    res.json({ success: true, theme });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/themes/download/:themeId', async (req, res) => {
+  try {
+    const theme = await publicThemes.findOne({ id: req.params.themeId });
+    if (!theme) return res.status(404).json({ error: 'Theme not found' });
+    await publicThemes.updateOne({ id: req.params.themeId }, { $inc: { downloads: 1 } });
+    res.json({ success: true, data: theme.data });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.delete('/api/themes/public/:themeId', authenticateToken, async (req, res) => {
+  try {
+    const theme = await publicThemes.findOne({ id: req.params.themeId });
+    if (!theme) return res.status(404).json({ error: 'Theme not found' });
+    const user = await getUser(req.userId);
+    if (!user || (user.role !== 'admin' && user.role !== 'owner' && theme.authorId !== req.userId)) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+    await publicThemes.deleteOne({ id: req.params.themeId });
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 const PORT = process.env.PORT || 3001;
