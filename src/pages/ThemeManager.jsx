@@ -2,17 +2,13 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import { getApiUrl, getServerUrl } from '../config';
 import { login, getActiveUser } from '../utils/auth';
-import ThemeCard from '../components/ThemeCard/ThemeCard';
-import ThemeEditor from '../components/ThemeEditor/ThemeEditor';
-import './ThemeManager.css';
 
-const TABS = [
-  { id: 'my', label: 'Мои темы' },
-  { id: 'public', label: 'Каталог' },
-];
+import './ThemeManager.css';
 
 const ThemeManager = () => {
   const { themes, activeTheme, selectTheme, createTheme, updateTheme, deleteTheme, exportTheme, importTheme } = useTheme();
+  const currentUser = getActiveUser();
+  const currentUserId = currentUser?.id;
   const [activeTab, setActiveTab] = useState('my');
   const [showEditor, setShowEditor] = useState(false);
   const [editingTheme, setEditingTheme] = useState(null);
@@ -123,32 +119,39 @@ const getToken = () => localStorage.getItem('ilnaz-token');
   const downloadTheme = async (themeData) => {
     try {
       const themeId = themeData._id || themeData.id;
-      console.log('Downloading theme:', themeId, themeData);
+      console.log('Downloading theme, ID:', themeId, 'Full:', themeData);
+      if (!themeId) {
+        throw new Error('ID темы не найден');
+      }
       const token = getToken();
       const res = await fetch(`${getServerUrl()}/api/themes/download/${themeId}`, {
         method: 'POST',
         headers: token ? { 'Authorization': `Bearer ${token}` } : {},
       });
+      console.log('Response status:', res.status);
       const result = await res.json();
       console.log('Download result:', result);
-      if (result.success && result.data) {
-        const importRes = await importThemeFile(result.data);
-        if (importRes.success) {
-          alert('Тема скачана и установлена!');
-        } else {
-          throw new Error(importRes.error || 'Failed to import');
-        }
+      if (!result.success) {
+        throw new Error(result.error || 'Ошибка скачивания');
+      }
+      if (!result.data) {
+        throw new Error('Данные темы не получены');
+      }
+      const importRes = await importThemeFile(result.data);
+      if (importRes.success) {
+        alert('Тема скачана и установлена!');
       } else {
-        throw new Error(result.error || 'Ошибка скачивания: тема не найдена');
+        throw new Error(importRes.error || 'Failed to import');
       }
     } catch (e) {
+      console.error('Download error:', e);
       alert('Ошибка: ' + e.message);
     }
   };
 
   const importThemeFile = async (themeDataJson) => {
     try {
-      const parsed = JSON.parse(themeDataJson);
+      const parsed = typeof themeDataJson === 'object' ? themeDataJson : JSON.parse(themeDataJson);
       const id = 'public-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
       const themeWithId = { ...parsed, id };
       const result = await createTheme(themeWithId);
@@ -158,6 +161,30 @@ const getToken = () => localStorage.getItem('ilnaz-token');
       return result;
     } catch (e) {
       return { success: false, error: e.message };
+    }
+  };
+
+  const deletePublicTheme = async (themeId) => {
+    if (!confirm('Удалить тему из каталога?')) return;
+    try {
+      const token = getToken();
+      if (!token) {
+        alert('Нужно войти в аккаунт');
+        return;
+      }
+      const res = await fetch(`${getServerUrl()}/api/themes/public/${themeId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      const result = await res.json();
+      if (result.success) {
+        alert('Тема удалена!');
+        loadPublicThemes();
+      } else {
+        throw new Error(result.error || 'Ошибка удаления');
+      }
+    } catch (e) {
+      alert('Ошибка: ' + e.message);
     }
   };
 
@@ -384,13 +411,21 @@ const getToken = () => localStorage.getItem('ilnaz-token');
                     </div>
                   </div>
                   <div className="theme-actions">
-                    <button className="theme-action-btn" title="Скачать">
+                    <button className="theme-action-btn" onClick={(e) => { e.stopPropagation(); downloadTheme(theme); }} title="Скачать">
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
                         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
                         <polyline points="7 10 12 15 17 10" />
                         <line x1="12" y1="15" x2="12" y2="3" />
                       </svg>
                     </button>
+                    {theme.authorId === currentUserId && (
+                      <button className="theme-action-btn theme-action-danger" onClick={(e) => { e.stopPropagation(); deletePublicTheme(theme._id || theme.id); }} title="Удалить из каталога">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
+                          <polyline points="3 6 5 6 21 6" />
+                          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                        </svg>
+                      </button>
+                    )}
                   </div>
                 </div>
               );
