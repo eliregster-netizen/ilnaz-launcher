@@ -5,6 +5,11 @@ import { login, getActiveUser } from '../utils/auth';
 
 import './ThemeManager.css';
 
+const TABS = [
+  { id: 'my', label: 'Мои темы' },
+  { id: 'public', label: 'Каталог' },
+];
+
 const ThemeManager = () => {
   const { themes, activeTheme, selectTheme, createTheme, updateTheme, deleteTheme, exportTheme, importTheme } = useTheme();
   const currentUser = getActiveUser();
