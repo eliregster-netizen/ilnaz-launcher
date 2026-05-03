@@ -728,6 +728,12 @@ app.get('/api/themes/public', async (req, res) => {
         const u = await users.findOne({ id: t.authorId });
         t.authorAvatar = u?.avatar || null;
       }
+      // Merge data fields if they exist separately
+      if (t.data && !t.colors) {
+        t.colors = t.data.colors;
+        t.background = t.data.background;
+        t.launcherTitle = t.data.launcherTitle;
+      }
     }
     res.json({ themes });
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -735,19 +741,31 @@ app.get('/api/themes/public', async (req, res) => {
 
 app.post('/api/themes/publish', authenticateToken, async (req, res) => {
   try {
-    const { name, version, description, launcherTitle, colors, data } = req.body;
+    const { name, version, description, launcherTitle, colors, data, background } = req.body;
     if (!name) return res.status(400).json({ error: 'Theme name required' });
     const user = await getUser(req.userId);
-    const theme = {
-      id: generateId(),
+    
+    // Store full data object or merge individual fields
+    const themeData = data || {
       name,
-      author: user ? user.nickname : 'Аноним',
-      authorId: req.userId,
       version: version || '1.0',
       description: description || '',
       launcherTitle: launcherTitle || null,
       colors: colors || {},
-      data: data || null,
+      background: background || null,
+    };
+    
+    const theme = {
+      id: generateId(),
+      name: themeData.name,
+      author: user ? user.nickname : 'Аноним',
+      authorId: req.userId,
+      version: themeData.version,
+      description: themeData.description,
+      launcherTitle: themeData.launcherTitle,
+      colors: themeData.colors,
+      background: themeData.background,
+      data: themeData,
       created_at: new Date().toISOString(),
       downloads: 0,
     };
@@ -765,7 +783,17 @@ app.post('/api/themes/download/:themeId', async (req, res) => {
       const u = await users.findOne({ id: theme.authorId });
       theme.authorAvatar = u?.avatar || null;
     }
-    res.json({ success: true, data: theme.data });
+    // Return full theme data - try data field first, fallback to individual fields
+    const fullData = theme.data || {
+      name: theme.name,
+      author: theme.author,
+      version: theme.version,
+      description: theme.description,
+      launcherTitle: theme.launcherTitle,
+      colors: theme.colors,
+    };
+    console.log('Download theme:', theme.name, 'has data:', !!theme.data, 'has colors:', !!theme.colors);
+    res.json({ success: true, data: fullData });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 

@@ -122,12 +122,15 @@ const getToken = () => localStorage.getItem('ilnaz-token');
 
   const downloadTheme = async (themeData) => {
     try {
+      const themeId = themeData._id || themeData.id;
+      console.log('Downloading theme:', themeId, themeData);
       const token = getToken();
-      const res = await fetch(`${getServerUrl()}/api/themes/download/${themeData._id || themeData.id}`, {
+      const res = await fetch(`${getServerUrl()}/api/themes/download/${themeId}`, {
         method: 'POST',
         headers: token ? { 'Authorization': `Bearer ${token}` } : {},
       });
       const result = await res.json();
+      console.log('Download result:', result);
       if (result.success && result.data) {
         const importRes = await importThemeFile(result.data);
         if (importRes.success) {
@@ -136,7 +139,7 @@ const getToken = () => localStorage.getItem('ilnaz-token');
           throw new Error(importRes.error || 'Failed to import');
         }
       } else {
-        throw new Error(result.error || 'Ошибка скачивания');
+        throw new Error(result.error || 'Ошибка скачивания: тема не найдена');
       }
     } catch (e) {
       alert('Ошибка: ' + e.message);
@@ -331,35 +334,67 @@ const getToken = () => localStorage.getItem('ilnaz-token');
       ) : (
         <>
           <div className="tm-grid">
-            {filteredPublic.map(theme => (
-              <div key={theme._id || theme.id} className="tm-card tm-card-public">
-                <div className="tm-card-preview">
-                  {theme.colors?.bgPrimary && (
-                    <div className="tm-card-bg" style={{ background: `linear-gradient(135deg, ${theme.colors.bgPrimary} 0%, ${theme.colors.accentPrimary || '#00d4ff'} 100%)` }} />
-                  )}
-                  {!theme.colors?.bgPrimary && <div className="tm-card-bg tm-card-bg-default" />}
-                  <div className="tm-card-info">
-                    <h3 className="tm-card-name">{theme.name}</h3>
-                    <div className="tm-card-author-row">
-                      {theme.authorAvatar && <img src={theme.authorAvatar} alt="" className="tm-card-avatar" />}
-                      <span className="tm-card-author">от {theme.author || 'Аноним'}</span>
+            {filteredPublic.map(theme => {
+              const c = theme.colors || {};
+              const bg = theme.data?.background || theme.background || {};
+              const isBgImage = bg.type === 'image' && bg.value;
+              const isGradient = bg.type === 'gradient' && bg.value;
+              
+              const cardBgStyle = isBgImage
+                ? { backgroundImage: `url(${bg.value})`, backgroundSize: 'cover', backgroundPosition: 'center' }
+                : isGradient
+                  ? { background: bg.value }
+                  : bg.type === 'solid'
+                    ? { backgroundColor: c.bgPrimary || '#0a0a1a' }
+                    : { background: `linear-gradient(135deg, ${c.bgSecondary || '#12122e'}, ${c.bgTertiary || '#1a1a3e'})` };
+              
+              const accentStyle = {
+                background: `linear-gradient(135deg, ${c.accentPrimary || '#7b2ff7'}, ${c.accentSecondary || '#00d4ff'})`,
+              };
+              
+              return (
+                <div key={theme._id || theme.id} className="theme-card" onClick={() => downloadTheme(theme)}>
+                  <div className="theme-preview" style={cardBgStyle}>
+                    {isBgImage && <div className="theme-preview-blur" style={{ backgroundImage: `url(${bg.value})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />}
+                    <div className="theme-preview-overlay" />
+                    <div className="theme-preview-bar" style={accentStyle} />
+                    <div className="theme-preview-sidebar" style={{ background: c.glassBg || 'rgba(255,255,255,0.05)' }}>
+                      <div className="theme-preview-dot" style={{ background: c.accentPrimary || '#7b2ff7' }} />
+                      <div className="theme-preview-line" style={{ background: c.textPrimary || '#fff', width: '70%', opacity: 0.6 }} />
+                      <div className="theme-preview-line" style={{ background: c.textPrimary || '#fff', width: '50%', opacity: 0.4 }} />
+                    </div>
+                    <div className="theme-preview-content">
+                      <div className="theme-preview-block" style={{ background: c.glassBg || 'rgba(255,255,255,0.05)', border: `1px solid ${c.glassBorder || 'rgba(255,255,255,0.1)'}` }}>
+                        <div className="theme-preview-line" style={{ background: accentStyle.background, width: '40%' }} />
+                        <div className="theme-preview-line" style={{ background: c.textPrimary || '#fff', width: '80%', opacity: 0.3 }} />
+                      </div>
                     </div>
                   </div>
+                  <div className="theme-info">
+                    <div className="theme-name-row">
+                      <h4 className="theme-name">{theme.name}</h4>
+                    </div>
+                    {theme.data?.author && <p className="theme-author">by {theme.data.author}</p>}
+                    {theme.description && <p className="theme-desc">{theme.description}</p>}
+                    <div className="theme-color-dots">
+                      <span style={{ background: c.accentPrimary || '#7b2ff7' }} />
+                      <span style={{ background: c.accentSecondary || '#00d4ff' }} />
+                      <span style={{ background: c.bgPrimary || '#0a0a1a', border: '1px solid rgba(255,255,255,0.2)' }} />
+                      <span style={{ background: c.textPrimary || '#fff' }} />
+                    </div>
+                  </div>
+                  <div className="theme-actions">
+                    <button className="theme-action-btn" title="Скачать">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                        <polyline points="7 10 12 15 17 10" />
+                        <line x1="12" y1="15" x2="12" y2="3" />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
-                <p className="tm-card-desc">{theme.description || 'Без описания'}</p>
-                <div className="tm-card-footer">
-                  <span className="tm-card-version">v{theme.version || '1.0'}</span>
-                  <button className="tm-btn tm-btn-accent tm-btn-sm" onClick={() => downloadTheme(theme)}>
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
-                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                      <polyline points="7 10 12 15 17 10" />
-                      <line x1="12" y1="15" x2="12" y2="3" />
-                    </svg>
-                    Скачать
-                  </button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
           {filteredPublic.length === 0 && (
             <div className="tm-empty">
