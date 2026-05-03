@@ -20,8 +20,9 @@ const DEFAULT_COLORS = {
 };
 
 const ThemeEditor = ({ theme, onSave, onCancel }) => {
-  const profile = JSON.parse(localStorage.getItem('ilnaz-user') || {});
-  const avatarSrc = profile.avatar || null;
+  const saved = localStorage.getItem('ilnaz-user');
+  const profile = saved ? JSON.parse(saved) : {};
+  const avatarSrc = profile?.avatar || null;
   const isEditing = !!theme;
 
   const [name, setName] = useState(theme?.name || '');
