@@ -721,6 +721,12 @@ app.delete('/api/chat/conversations/:conversationId', authenticateToken, async (
 app.get('/api/themes/public', async (req, res) => {
   try {
     const themes = await publicThemes.find().sort({ created_at: -1 }).toArray();
+    for (const t of themes) {
+      if (t.authorId) {
+        const u = await users.findOne({ id: t.authorId });
+        t.authorAvatar = u?.avatar || null;
+      }
+    }
     res.json({ themes });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -753,6 +759,10 @@ app.post('/api/themes/download/:themeId', async (req, res) => {
     const theme = await publicThemes.findOne({ id: req.params.themeId });
     if (!theme) return res.status(404).json({ error: 'Theme not found' });
     await publicThemes.updateOne({ id: req.params.themeId }, { $inc: { downloads: 1 } });
+    if (theme.authorId) {
+      const u = await users.findOne({ id: theme.authorId });
+      theme.authorAvatar = u?.avatar || null;
+    }
     res.json({ success: true, data: theme.data });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });

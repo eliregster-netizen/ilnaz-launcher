@@ -47,6 +47,13 @@ const getToken = () => localStorage.getItem('ilnaz-token');
   const publishTheme = async (themeId) => {
     setPublishing(themeId);
     try {
+      const token = localStorage.getItem('ilnaz-token');
+      if (!token) {
+        alert('Ошибка аутентификации: нужно войти в аккаунт');
+        setPublishing(null);
+        return;
+      }
+
       const exportRes = await exportTheme(themeId);
       if (!exportRes.success) throw new Error('Failed to export');
 
@@ -61,12 +68,11 @@ const getToken = () => localStorage.getItem('ilnaz-token');
         data: exportRes.data,
       };
 
-      const token = getToken();
       const res = await fetch(`${getServerUrl()}/api/themes/publish`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify(body),
       });
@@ -290,7 +296,10 @@ const getToken = () => localStorage.getItem('ilnaz-token');
                   {!theme.colors?.bgPrimary && <div className="tm-card-bg tm-card-bg-default" />}
                   <div className="tm-card-info">
                     <h3 className="tm-card-name">{theme.name}</h3>
-                    <span className="tm-card-author">от {theme.author || 'Аноним'}</span>
+                    <div className="tm-card-author-row">
+                      {theme.authorAvatar && <img src={theme.authorAvatar} alt="" className="tm-card-avatar" />}
+                      <span className="tm-card-author">от {theme.author || 'Аноним'}</span>
+                    </div>
                   </div>
                 </div>
                 <p className="tm-card-desc">{theme.description || 'Без описания'}</p>
