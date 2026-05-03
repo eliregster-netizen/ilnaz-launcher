@@ -1,9 +1,10 @@
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, session } = require('electron');
 const path = require('path');
 const { exec, spawn } = require('child_process');
 const fs = require('fs-extra');
 const Client = require('discord-rpc');
 const mc = require('./minecraft');
+const themes = require('./themes');
 
 let mainWindow;
 let rpcClient;
@@ -46,6 +47,7 @@ function createWindow() {
       nodeIntegration: false,
       contextIsolation: true,
       preload: path.join(__dirname, 'preload.js'),
+      webSecurity: false,
     },
   });
 
@@ -77,16 +79,18 @@ function updatePresence(status, details, isPlayingGame = false) {
   if (!rpcClient || !rpcClient.user) return;
 
   if (isPlayingGame) {
-    const playtime = mc.getPlaytime();
+    const settings = mc.getSettings();
+    const version = settings.selectedVersion || '1.8.9';
+    const playtime = mc.getPlaytimeForVersion(version);
     const elapsed = Math.floor(playtime.totalSeconds || 0);
     const startTs = new Date(Date.now() - elapsed * 1000);
 
     rpcClient.setActivity({
-      details: details,
-      state: `1.8.9 | ${playtime.hours}ч ${String(playtime.minutes).padStart(2, '0')}м`,
+      details: 'Играет в Minecraft',
+      state: version,
       startTimestamp: startTs,
       largeImageKey: 'minecraft_logo',
-      largeImageText: 'Minecraft 1.8.9',
+      largeImageText: `Minecraft ${version}`,
       smallImageKey: 'ilnaz_logo',
       smallImageText: 'ILNAZ GAMING LAUNCHER',
       instance: false,
@@ -119,10 +123,18 @@ ipcMain.handle('set-discord-presence', (_event, status, details) => {
 
 // Minecraft IPC handlers
 ipcMain.handle('get-minecraft-status', () => mc.getStatus());
+ipcMain.handle('get-minecraft-versions', () => mc.getInstalledVersions());
+ipcMain.handle('fetch-minecraft-versions', async () => {
+  try {
+    return { success: true, versions: await mc.fetchAvailableVersions() };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+});
 
-ipcMain.handle('download-minecraft', async (_event, userData) => {
+ipcMain.handle('download-minecraft', async (_event, { version }) => {
   let currentStageText = '';
-  const result = await mc.downloadMinecraft((stage, dl, total, currentIdx, totalItems) => {
+  const result = await mc.downloadMinecraft(version, (stage, dl, total, currentIdx, totalItems) => {
     currentStageText = mc.getStatus().stage;
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('minecraft-download-progress', {
@@ -148,32 +160,165 @@ ipcMain.handle('cancel-minecraft-download', () => {
   return { success: true };
 });
 
-ipcMain.handle('launch-minecraft', async (_event, username, userId) => {
-  if (mc.isMinecraftRunning()) return { success: false, error: 'Already running' };
+ipcMain.handle('launch-minecraft', async (_event, version, userId) => {
+  try {
+    if (mc.isMinecraftRunning()) return { success: false, error: 'Already running' };
 
-  mc.setOnExit(() => {
-    mainWindow.webContents.send('minecraft-exited', {});
-    updatePresence('online', 'В главном меню', false);
-  });
+    mc.setOnExit(() => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('minecraft-exited', {});
+      }
+      updatePresence('online', 'В главном меню', false);
+    });
 
-  const result = await mc.launchMinecraft(username, (totalSeconds) => {
-    const hours = Math.floor(totalSeconds / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    updatePresence('online', `Играет в Minecraft ${hours}ч ${minutes}м`, true);
-  });
+    const result = await mc.launchMinecraft(version, () => {
+      updatePresence('online', 'Играет в Minecraft', true);
+    });
 
-  if (result.success) {
-    updatePresence('online', 'Играет в Minecraft', true);
-    if (userId && mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('minecraft-launched', { userId });
+    if (result.success) {
+      updatePresence('online', 'Играет в Minecraft', true);
+      mainWindow.webContents.send('minecraft-launched', {});
     }
-  }
 
-  return result;
+    return result;
+  } catch (err) {
+    console.error('[MC Launch Error]', err.message, err.stack);
+    return { success: false, error: err.message };
+  }
 });
 
 ipcMain.handle('save-minecraft-settings', (_event, settings) => {
   mc.saveSettings(settings);
+  return { success: true };
+});
+
+ipcMain.handle('microsoft-login', async () => {
+  return mc.microsoftLogin(mainWindow);
+});
+
+ipcMain.handle('microsoft-logout', async () => {
+  return mc.microsoftLogout();
+});
+
+ipcMain.handle('elyby-login', async (_event, username, password) => {
+  try {
+    return await mc.elybyLogin(username, password);
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+});
+
+ipcMain.handle('offline-login', (_event, username) => mc.offlineLogin(username));
+
+ipcMain.handle('download-java8', async (_event) => {
+  try {
+    await mc.downloadJava8((stage, downloaded, total) => {
+      if (mainWindow) mainWindow.webContents.send('java8-download-progress', { stage, downloaded, total });
+    });
+    return { success: true };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+});
+
+ipcMain.handle('is-java8-downloaded', () => mc.isJava8Downloaded());
+
+ipcMain.handle('download-java17', async (_event) => {
+  try {
+    await mc.downloadJava17((stage, downloaded, total) => {
+      if (mainWindow) mainWindow.webContents.send('java8-download-progress', { stage, downloaded, total });
+    });
+    return { success: true };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+});
+
+ipcMain.handle('is-java17-downloaded', () => mc.isJava17Downloaded());
+
+ipcMain.handle('delete-minecraft-version', (_event, version) => mc.deleteVersion(version));
+
+ipcMain.handle('reinstall-minecraft-version', async (_event, version) => {
+  let currentStageText = '';
+  const result = await mc.reinstallVersion(version, (stage, dl, total, currentIdx, totalItems) => {
+    currentStageText = mc.getStatus().stage;
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('minecraft-download-progress', {
+        stage, downloaded: dl, total, currentIdx, totalItems, stageText: currentStageText,
+      });
+    }
+  });
+  if (result.success && mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('minecraft-download-complete', { success: true });
+  }
+  return result;
+});
+
+ipcMain.handle('is-optifine-installed', (_event, version) => mc.isOptifineInstalled(version));
+ipcMain.handle('check-optifine-available', async (_event, version) => mc.checkOptifineAvailable(version));
+ipcMain.handle('download-optifine', async (_event, version) => {
+  const result = await mc.downloadOptifine(version, (stage, dl, total) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('minecraft-download-progress', {
+        stage: 'optifine', downloaded: dl, total,
+      });
+    }
+  });
+  return result;
+});
+ipcMain.handle('remove-optifine', (_event, version) => mc.removeOptifine(version));
+
+// Theme IPC handlers
+ipcMain.handle('get-themes', () => themes.getAllThemes());
+ipcMain.handle('get-active-theme', () => themes.getActiveTheme());
+ipcMain.handle('set-active-theme', (_event, themeId) => themes.setActiveTheme(themeId));
+ipcMain.handle('create-theme', (_event, themeData) => ({ success: true, theme: themes.createTheme(themeData) }));
+ipcMain.handle('update-theme', (_event, themeId, updates) => {
+  const result = themes.updateTheme(themeId, updates);
+  return result ? { success: true, theme: result } : { success: false, error: 'Theme not found' };
+});
+ipcMain.handle('delete-theme', (_event, themeId) => themes.deleteTheme(themeId));
+ipcMain.handle('export-theme', (_event, themeId) => {
+  const data = themes.exportTheme(themeId);
+  return data ? { success: true, data } : { success: false, error: 'Theme not found' };
+});
+ipcMain.handle('import-theme-file', async (_event, filePath) => themes.importTheme(filePath));
+ipcMain.handle('select-theme-file', async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    properties: ['openFile'],
+    filters: [{ name: 'ILNAZ Theme', extensions: ['ilnztheme'] }],
+  });
+  return result.canceled ? null : result.filePaths[0];
+});
+ipcMain.handle('save-theme-file', async (_event, themeData) => {
+  const result = await dialog.showSaveDialog(mainWindow, {
+    title: 'Сохранить тему',
+    defaultPath: `${themeData.name || 'my-theme'}.ilnztheme`,
+    filters: [{ name: 'ILNAZ Theme', extensions: ['ilnztheme'] }],
+  });
+  if (result.canceled || !result.filePath) return { success: false };
+  await fs.writeFile(result.filePath, JSON.stringify({
+    name: themeData.name,
+    author: themeData.author,
+    version: themeData.version,
+    description: themeData.description,
+    launcherTitle: themeData.launcherTitle,
+    colors: themeData.colors,
+    background: themeData.background,
+    icon: themeData.icon,
+  }, null, 2));
+  return { success: true, path: result.filePath };
+});
+
+ipcMain.handle('get-minecraft-accounts', () => mc.getAccounts());
+ipcMain.handle('set-minecraft-active-account', (_event, accountId) => {
+  mc.setActiveAccount(accountId);
+  mc.syncActiveAccountToAuth();
+  return { success: true };
+});
+ipcMain.handle('remove-minecraft-account', (_event, accountId) => {
+  mc.removeAccount(accountId);
+  mc.syncActiveAccountToAuth();
   return { success: true };
 });
 

@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { getActiveUser, updateUserStats } from '../utils/auth';
+import { useTheme } from '../context/ThemeContext';
 import './Minecraft.css';
 
 const Minecraft = () => {
+  const { playLaunchSound } = useTheme();
   const user = getActiveUser();
   const [status, setStatus] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -78,6 +80,7 @@ const Minecraft = () => {
 
   const handleLaunch = async () => {
     setLaunching(true);
+    await playLaunchSound();
     const result = await window.electron.launchMinecraft(settings.username || user?.username || 'Player', user?.id);
     setLaunching(false);
 

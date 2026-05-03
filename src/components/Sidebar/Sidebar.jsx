@@ -1,5 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import logo from '../../assets/logo.png';
+import { useTheme } from '../../context/ThemeContext';
 import VerifyBadge from '../VerifyBadge/VerifyBadge';
 import './Sidebar.css';
 
@@ -19,13 +20,17 @@ const statusColors = {
 
 const Sidebar = ({ profile }) => {
   const location = useLocation();
+  const { sidebarLogoSrc, activeTheme } = useTheme();
+
+  const launcherTitle = activeTheme?.launcherTitle || 'ILNAZ GAMING LAUNCHER';
 
   const navItems = [
     { path: '/', icon: 'home', label: 'Home' },
     { path: '/library', icon: 'library', label: 'Library' },
-    { path: '/minecraft', icon: 'minecraft', label: 'Minecraft' },
     { path: '/friends', icon: 'friends', label: 'Друны' },
     { path: '/chat', icon: 'chat', label: 'Чат' },
+    { path: '/themes', icon: 'themes', label: 'Темы' },
+    { path: '/settings', icon: 'settings', label: 'Настройки' },
     { path: '/profile', icon: 'profile', label: 'Profile' },
   ];
 
@@ -51,14 +56,6 @@ const Sidebar = ({ profile }) => {
             <rect x="3" y="14" width="7" height="7" />
           </svg>
         );
-      case 'minecraft':
-        return (
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M12 2L2 7l10 5 10-5-10-5z" />
-            <path d="M2 17l10 5 10-5" />
-            <path d="M2 12l10 5 10-5" />
-          </svg>
-        );
       case 'friends':
         return (
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -72,6 +69,19 @@ const Sidebar = ({ profile }) => {
         return (
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+          </svg>
+        );
+      case 'settings':
+        return (
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="12" cy="12" r="3" />
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+          </svg>
+        );
+      case 'themes':
+        return (
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" />
           </svg>
         );
       case 'profile':
@@ -96,10 +106,9 @@ const Sidebar = ({ profile }) => {
     <aside className="sidebar glass">
       <div className="sidebar-header">
         <div className="sidebar-logo">
-          <img src={logo} className="logo-icon" alt="Logo" />
-          <span className="logo-text">ILNAZ</span>
+          <img src={sidebarLogoSrc || logo} className="logo-icon" alt="Logo" />
+          <span className="logo-text">{launcherTitle}</span>
         </div>
-        <div className="logo-subtitle">GAMING LAUNCHER</div>
       </div>
 
       <div className="sidebar-profile">

@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { useAuth } from '../../utils/auth';
 import './ThemeEditor.css';
 
 const DEFAULT_COLORS = {
@@ -21,10 +20,9 @@ const DEFAULT_COLORS = {
 };
 
 const ThemeEditor = ({ theme, onSave, onCancel }) => {
-  const { isAdmin } = useAuth();
   const profile = JSON.parse(localStorage.getItem('ilnaz-user') || {});
-  const isEditing = !!theme;
   const avatarSrc = profile.avatar || null;
+  const isEditing = !!theme;
 
   const [name, setName] = useState(theme?.name || '');
   const [author, setAuthor] = useState(theme?.author || '');

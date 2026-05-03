@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
 import { updateUser, setStatus, isAdmin } from '../utils/auth';
-import { getServerUrl, setServerUrl } from '../config';
 import VerifyBadge from '../components/VerifyBadge/VerifyBadge';
 import './Profile.css';
 
@@ -19,15 +18,14 @@ const Profile = ({ profile, onUpdate, onLogout }) => {
   const avatarInputRef = useRef(null);
   const bannerInputRef = useRef(null);
   const statusRef = useRef(null);
+  const [mcVersionsCount, setMcVersionsCount] = useState(0);
   const [formData, setFormData] = useState({
     nickname: profile.nickname,
     bio: profile.bio,
     avatar: profile.avatar,
     banner: profile.banner,
   });
-  const [serverUrl, setServerUrlState] = useState(getServerUrl());
-  const [editingServer, setEditingServer] = useState(false);
-  const [serverInput, setServerInput] = useState(serverUrl);
+
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -42,6 +40,17 @@ const Profile = ({ profile, onUpdate, onLogout }) => {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showStatusPicker]);
+
+  useEffect(() => {
+    loadMcVersions();
+  }, []);
+
+  const loadMcVersions = async () => {
+    try {
+      const versions = await window.electron.getMinecraftVersions();
+      setMcVersionsCount(versions.length);
+    } catch (e) {}
+  };
 
   useEffect(() => {
     if (showStatusPicker && statusRef.current) {
@@ -95,13 +104,6 @@ const Profile = ({ profile, onUpdate, onLogout }) => {
     } catch (err) {
       console.error('Status change error:', err);
     }
-  };
-
-  const handleSaveServerUrl = () => {
-    if (serverInput.trim()) {
-      setServerUrl(serverInput.trim().replace(/\/+$/, ''));
-    }
-    setEditingServer(false);
   };
 
   const currentStatus = statusOptions.find(s => s.value === profile.status) || statusOptions[3];
@@ -204,7 +206,7 @@ const Profile = ({ profile, onUpdate, onLogout }) => {
         <h2 className="section-title">Статистика</h2>
         <div className="stats-grid">
           <div className="stat-item">
-            <div className="stat-value">{profile.games_played || 0}</div>
+            <div className="stat-value">{(profile.games_played || 0) + mcVersionsCount}</div>
             <div className="stat-label">Игр</div>
           </div>
           <div className="stat-item">
@@ -244,25 +246,6 @@ const Profile = ({ profile, onUpdate, onLogout }) => {
       <div className="profile-settings glass fade-in fade-in-delay-3">
         <h2 className="section-title">Аккаунт</h2>
         <div className="settings-actions">
-          <div className="settings-row">
-            <span>Сервер</span>
-            {editingServer ? (
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                <input
-                  className="server-input"
-                  value={serverInput}
-                  onChange={(e) => setServerInput(e.target.value)}
-                  placeholder="http://192.168.1.100:3001"
-                />
-                <button className="edit-btn" onClick={handleSaveServerUrl} style={{ fontSize: '12px', padding: '6px 12px' }}>OK</button>
-                <button className="edit-btn" onClick={() => { setEditingServer(false); setServerInput(serverUrl); }} style={{ fontSize: '12px', padding: '6px 12px' }}>✕</button>
-              </div>
-            ) : (
-              <span className="server-url-display" onClick={() => { setEditingServer(true); setServerInput(serverUrl); }} style={{ cursor: 'pointer', color: 'var(--accent-secondary)' }}>
-                {serverUrl}
-              </span>
-            )}
-          </div>
           <button className="logout-btn" onClick={onLogout}>
             Выйти из аккаунта
           </button>

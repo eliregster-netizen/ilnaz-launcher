@@ -29,6 +29,8 @@
   align-items: center;
   justify-content: center;
   gap: 10px;
+  flex-wrap: nowrap;
+  min-width: 0;
 }
 
 .logo-icon {
@@ -40,13 +42,18 @@
 }
 
 .logo-text {
-  font-size: 24px;
+  font-size: 16px;
   font-weight: 800;
-  letter-spacing: 2px;
+  letter-spacing: 1px;
   background: var(--accent-gradient);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+  max-width: 120px;
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.2;
+  overflow-wrap: break-word;
 }
 
 .logo-subtitle {

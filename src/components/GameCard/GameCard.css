@@ -145,3 +145,57 @@
   padding: 2px 8px;
   border-radius: 4px;
 }
+
+.mc-source {
+  background: rgba(90, 143, 41, 0.15);
+  color: #a4d65e;
+  border: 1px solid rgba(90, 143, 41, 0.2);
+}
+
+.game-playtime {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.mc-game-card {
+  border: 1px solid rgba(90, 143, 41, 0.15) !important;
+  margin-top: 15px;
+}
+
+.mc-game-card:hover {
+  box-shadow: 
+    0 12px 40px rgba(90, 143, 41, 0.15),
+    0 0 0 1px rgba(90, 143, 41, 0.3) !important;
+}
+
+.settings-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(90, 143, 41, 0.7);
+  border: none;
+  color: white;
+  cursor: pointer;
+  opacity: 0;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mc-game-card:hover .settings-btn {
+  opacity: 1;
+}
+
+.settings-btn:hover {
+  background: rgba(90, 143, 41, 0.9);
+  transform: scale(1.1);
+}
+
+.settings-btn svg {
+  width: 14px;
+  height: 14px;
+}

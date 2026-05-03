@@ -151,7 +151,16 @@ const getToken = () => localStorage.getItem('ilnaz-token');
   };
 
   const handleDelete = async (themeId) => { if (confirm('Удалить эту тему?')) await deleteTheme(themeId); };
-  const handleExport = async (themeId) => { const r = await exportTheme(themeId); if (r.success) alert('Тема сохранена!'); };
+  const handleExport = async (themeId) => {
+    const r = await exportTheme(themeId);
+    if (r.success && r.data) {
+      const saveResult = await window.electron?.saveThemeFile?.(r.data);
+      if (saveResult?.success) alert('Тема сохранена!');
+      else if (!saveResult?.success) alert('Ошибка при сохранении файла');
+    } else {
+      alert(r.error || 'Ошибка экспорта темы');
+    }
+  };
 
   const handleImport = useCallback(async () => {
     const filePath = await window.electron?.selectThemeFile?.();

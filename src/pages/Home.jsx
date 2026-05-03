@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import GameCard from '../components/GameCard/GameCard';
+import { useTheme } from '../context/ThemeContext';
 import './Home.css';
 
 const Home = ({ profile }) => {
+  const { playLaunchSound } = useTheme();
   const [games, setGames] = useState([]);
   const [recentGames, setRecentGames] = useState([]);
 
@@ -89,6 +91,7 @@ const Home = ({ profile }) => {
   );
 
   async function launchGame(game) {
+    await playLaunchSound();
     await window.electron.launchGame(game);
   }
 
