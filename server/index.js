@@ -13,6 +13,8 @@ const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
   : ['http://localhost:5173', 'http://localhost:3000'];
 
+const JWT_SECRET = process.env.JWT_SECRET || 'ilnaz-default-secret-change-in-production';
+
 const io = new Server(server, {
   cors: { origin: ALLOWED_ORIGINS, credentials: true },
   maxHttpBufferSize: 15 * 1024 * 1024, // 15MB для поддержки файлов до 10MB в base64
