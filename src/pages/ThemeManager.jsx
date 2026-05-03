@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import { getApiUrl, getServerUrl } from '../config';
+import { login, getActiveUser } from '../utils/auth';
 import ThemeCard from '../components/ThemeCard/ThemeCard';
 import ThemeEditor from '../components/ThemeEditor/ThemeEditor';
 import './ThemeManager.css';
@@ -47,7 +48,16 @@ const getToken = () => localStorage.getItem('ilnaz-token');
   const publishTheme = async (themeId) => {
     setPublishing(themeId);
     try {
-      const token = localStorage.getItem('ilnaz-token');
+      let token = localStorage.getItem('ilnaz-token');
+      if (!token) {
+        const user = getActiveUser();
+        if (user?.username && user?.password) {
+          const loginResult = await login(user.username, user.password);
+          if (loginResult.success) {
+            token = localStorage.getItem('ilnaz-token');
+          }
+        }
+      }
       if (!token) {
         alert('Ошибка аутентификации: нужно войти в аккаунт');
         setPublishing(null);
@@ -150,7 +160,11 @@ const getToken = () => localStorage.getItem('ilnaz-token');
     setShowEditor(false); setEditingTheme(null);
   };
 
-  const handleDelete = async (themeId) => { if (confirm('Удалить эту тему?')) await deleteTheme(themeId); };
+  const handleDelete = async (themeId) => {
+    if (confirm('Удалить эту тему?')) {
+      await deleteTheme(themeId);
+    }
+  };
   const handleExport = async (themeId) => {
     const r = await exportTheme(themeId);
     if (r.success && r.data) {

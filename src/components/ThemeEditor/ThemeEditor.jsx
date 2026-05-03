@@ -26,7 +26,6 @@ const ThemeEditor = ({ theme, onSave, onCancel }) => {
   const isEditing = !!theme;
 
   const [name, setName] = useState(theme?.name || '');
-  const [author, setAuthor] = useState(theme?.author || '');
   const [description, setDescription] = useState(theme?.description || '');
   const [launcherTitle, setLauncherTitle] = useState(theme?.launcherTitle || 'ILNAZ GAMING LAUNCHER');
   const [colors, setColors] = useState(theme?.colors || { ...DEFAULT_COLORS });
@@ -39,7 +38,6 @@ const ThemeEditor = ({ theme, onSave, onCancel }) => {
   useEffect(() => {
     if (theme) {
       setName(theme.name || '');
-      setAuthor(theme.author || '');
       setDescription(theme.description || '');
       setLauncherTitle(theme.launcherTitle || '');
       setColors(theme.colors || { ...DEFAULT_COLORS });
@@ -90,7 +88,6 @@ const ThemeEditor = ({ theme, onSave, onCancel }) => {
     onSave({
       ...(isEditing ? { id: theme.id } : {}),
       name: name.trim(),
-      author: author.trim() || 'Пользователь',
       description: description.trim(),
       launcherTitle: launcherTitle.trim() || 'ILNAZ GAMING LAUNCHER',
       colors,
@@ -135,15 +132,6 @@ const ThemeEditor = ({ theme, onSave, onCancel }) => {
             <div className="editor-row">
               <label>Название</label>
               <input type="text" className="editor-input" value={name} onChange={e => setName(e.target.value)} placeholder="Моя тема" />
-            </div>
-            <div className="editor-row">
-              <label>Автор</label>
-              <div className="author-row">
-                {avatarSrc && (
-                  <img src={avatarSrc} alt="" className="author-avatar" />
-                )}
-                <input type="text" className="editor-input" value={author} onChange={e => setAuthor(e.target.value)} placeholder={profile.nickname || 'Ваше имя'} />
-              </div>
             </div>
             <div className="editor-row">
               <label>Описание</label>

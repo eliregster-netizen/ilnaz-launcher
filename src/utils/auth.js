@@ -44,6 +44,7 @@ export async function login(username, password) {
   if (data.success) {
     activeUser = data.user;
     localStorage.setItem('ilnaz-session', JSON.stringify(data.user));
+    localStorage.setItem('ilnaz-user', JSON.stringify({ username, password, ...data.user }));
     if (data.token) setToken(data.token);
   }
   return data;
@@ -59,6 +60,7 @@ export async function register(username, password, nickname) {
   if (data.success) {
     activeUser = data.user;
     localStorage.setItem('ilnaz-session', JSON.stringify(data.user));
+    localStorage.setItem('ilnaz-user', JSON.stringify({ username, password, ...data.user }));
     if (data.token) setToken(data.token);
   }
   return data;
