@@ -48,18 +48,39 @@ const getToken = () => localStorage.getItem('ilnaz-token');
   const publishTheme = async (themeId) => {
     setPublishing(themeId);
     try {
-      let token = localStorage.getItem('ilnaz-token');
+      let token = getToken();
+      console.log('Initial token:', token ? 'exists' : 'null');
+      
       if (!token) {
-        const user = getActiveUser();
-        if (user?.username && user?.password) {
-          const loginResult = await login(user.username, user.password);
-          if (loginResult.success) {
-            token = localStorage.getItem('ilnaz-token');
+        const savedUser = localStorage.getItem('ilnaz-user');
+        console.log('savedUser raw:', savedUser);
+        
+        if (savedUser) {
+          try {
+            const userData = JSON.parse(savedUser);
+            console.log('userData parsed, has username:', !!userData.username, 'has password:', !!userData.password);
+            
+            if (userData.username && userData.password) {
+              console.log('Attempting login with:', userData.username);
+              const loginResult = await login(userData.username, userData.password);
+              console.log('loginResult:', loginResult);
+              
+              if (loginResult.success) {
+                token = getToken();
+                console.log('New token after login:', token ? 'exists' : 'null');
+              }
+            }
+          } catch (e) {
+            console.error('Error parsing savedUser:', e);
           }
         }
       }
+      
       if (!token) {
-        alert('Ошибка аутентификации: нужно войти в аккаунт');
+        console.log('No token after all attempts');
+        const session = localStorage.getItem('ilnaz-session');
+        console.log('ilnaz-session exists:', !!session);
+        alert('Ошибка авторизации. Пожалуйста, войди в аккаунт заново через Настройки профиля.');
         setPublishing(null);
         return;
       }
