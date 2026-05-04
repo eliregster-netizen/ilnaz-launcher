@@ -37,6 +37,13 @@ const DEFAULTS = {
   server: {
     url: '',
   },
+  proxy: {
+    enabled: false,
+    host: '',
+    port: '',
+    username: '',
+    password: '',
+  },
 };
 
 function loadSettings() {

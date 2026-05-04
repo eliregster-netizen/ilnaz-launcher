@@ -11,7 +11,7 @@ const formatTime = (seconds) => {
 };
 
 const GlobalPlayer = () => {
-  const { currentTrack, isPlaying, volume, currentTime, duration, togglePlay, seekTo, setVolumeLevel, stop } = useMusic();
+  const { currentTrack, isPlaying, volume, currentTime, duration, togglePlay, seekTo, setVolumeLevel, stop, playNext, playPrevious, currentPlaylist, currentTrackIndex } = useMusic();
   const [expanded, setExpanded] = useState(false);
   const [showVolume, setShowVolume] = useState(false);
   const progressRef = useRef(null);
@@ -25,12 +25,22 @@ const GlobalPlayer = () => {
 
   if (!currentTrack) return null;
 
-  return (
-    <div className={`global-player ${expanded ? 'expanded' : ''}`} tabIndex={0}>
-      <div className="player-main" onClick={() => setExpanded(!expanded)}>
-        <button className="player-play-btn" onClick={(e) => { e.stopPropagation(); togglePlay(); }}>
-          {isPlaying ? '⏸' : '▶'}
-        </button>
+   return (
+     <div className={`global-player ${expanded ? 'expanded' : ''}`} tabIndex={0}>
+       <div className="player-main" onClick={() => setExpanded(!expanded)}>
+         {currentPlaylist && (
+           <>
+             <button className="player-prev-btn" onClick={(e) => { e.stopPropagation(); if (currentTrackIndex > 0) playPrevious(); }} disabled={currentTrackIndex <= 0}>
+               ⏮
+             </button>
+             <button className="player-next-btn" onClick={(e) => { e.stopPropagation(); if (currentTrackIndex < currentPlaylist.length - 1) playNext(); }} disabled={currentTrackIndex >= currentPlaylist.length - 1}>
+               ⏭
+             </button>
+           </>
+         )}
+         <button className="player-play-btn" onClick={(e) => { e.stopPropagation(); togglePlay(); }}>
+           {isPlaying ? '⏸' : '▶'}
+         </button>
         
         <div className="player-track-info">
           <span className="player-title">{currentTrack.originalName}</span>
@@ -87,11 +97,21 @@ const GlobalPlayer = () => {
               <p>published by {currentTrack.author}</p>
             </div>
           </div>
-          <div className="expanded-controls">
-            <button onClick={() => seekTo(Math.max(0, currentTime - 10))}>-10s</button>
-            <button className="big-play" onClick={togglePlay}>{isPlaying ? '⏸' : '▶'}</button>
-            <button onClick={() => seekTo(Math.min(duration, currentTime + 10))}>+10s</button>
-          </div>
+           <div className="expanded-controls">
+             {currentPlaylist && (
+               <>
+                 <button onClick={() => { if (currentTrackIndex > 0) playPrevious(); }} disabled={currentTrackIndex <= 0}>
+                   ⏮
+                 </button>
+                 <button onClick={() => { if (currentTrackIndex < currentPlaylist.length - 1) playNext(); }} disabled={currentTrackIndex >= currentPlaylist.length - 1}>
+                   ⏭
+                 </button>
+               </>
+             )}
+             <button onClick={() => seekTo(Math.max(0, currentTime - 10))}>-10s</button>
+             <button className="big-play" onClick={togglePlay}>{isPlaying ? '⏸' : '▶'}</button>
+             <button onClick={() => seekTo(Math.min(duration, currentTime + 10))}>+10s</button>
+           </div>
           <div className="expanded-seek">
             <input
               type="range"

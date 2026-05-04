@@ -1,0 +1,25 @@
+{
+  "providers": {
+    "node": {
+      "packageManager": "npm",
+      "commands": {
+        "install": "npm install",
+        "build": "npm run build"
+      }
+    }
+  },
+  "buildPlan": [
+    {
+      "command": "npm install",
+      "paths": ["package.json"]
+    },
+    {
+      "command": "npm run build",
+      "paths": ["package.json"]
+    },
+    {
+      "command": "cd server && npm install",
+      "paths": ["server/package.json"]
+    }
+  ]
+}

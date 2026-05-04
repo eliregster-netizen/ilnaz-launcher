@@ -5,6 +5,8 @@ const fs = require('fs-extra');
 const Client = require('discord-rpc');
 const mc = require('./minecraft');
 const themes = require('./themes');
+const https = require('https');
+const http = require('http');
 
 let mainWindow;
 let rpcClient;
@@ -41,6 +43,7 @@ function createWindow() {
     minWidth: 1000,
     minHeight: 600,
     titleBarStyle: 'hidden',
+    titleBarOverlay: false,
     frame: false,
     backgroundColor: '#1a1a2e',
     webPreferences: {
@@ -48,6 +51,8 @@ function createWindow() {
       contextIsolation: true,
       preload: path.join(__dirname, 'preload.js'),
       webSecurity: false,
+      webviewTag: true,
+      allowpopups: true
     },
   });
 
@@ -399,6 +404,81 @@ ipcMain.handle('maximize-app', () => {
 ipcMain.handle('set-always-on-top', (_event, value) => {
   mainWindow.setAlwaysOnTop(value);
   return { success: true };
+});
+
+// Proxy finder IPC
+ipcMain.handle('set-proxy', async (_event, proxyRules) => {
+  try {
+    const webContents = _event.sender;
+    await webContents.session.setProxy({ proxyRules, proxyBypassRules: '<local>' });
+    console.log('[Proxy] Set proxy:', proxyRules);
+    return { success: true };
+  } catch (err) {
+    console.error('[Proxy] Failed to set proxy:', err);
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('find-working-proxy', async () => {
+  try {
+    const proxyListUrl = 'https://raw.githubusercontent.com/proxifly/free-proxy-list/main/proxies/all/socks5.txt';
+    
+    // Fetch proxy list
+    const proxyList = await new Promise((resolve, reject) => {
+      https.get(proxyListUrl, (res) => {
+        let data = '';
+        res.on('data', chunk => data += chunk);
+        res.on('end', () => {
+          const proxies = data.split('\n')
+            .filter(line => line.trim())
+            .slice(0, 20) // Take first 20 for testing
+            .map(line => {
+              const match = line.match(/^(socks5|socks4|http|https):\/\/([^:]+):(\d+)$/);
+              if (match) {
+                return { protocol: match[1], host: match[2], port: parseInt(match[3], 10) };
+              }
+              return null;
+            })
+            .filter(Boolean);
+          resolve(proxies);
+        });
+      }).on('error', reject);
+    });
+
+    // Test proxies
+    for (const proxy of proxyList) {
+      const works = await new Promise((resolve) => {
+        const timeout = 5000;
+        const testUrl = 'http://www.google.com';
+        
+        const req = http.get({
+          host: proxy.host,
+          port: proxy.port,
+          path: testUrl,
+          timeout: timeout,
+          agent: false,
+        }, (res) => {
+          resolve(true);
+        });
+        
+        req.on('error', () => resolve(false));
+        req.on('timeout', () => {
+          req.destroy();
+          resolve(false);
+        });
+      });
+      
+      if (works) {
+        console.log('[ProxyFinder] Found working proxy:', proxy);
+        return { success: true, proxy: `${proxy.host}:${proxy.port}` };
+      }
+    }
+    
+    return { success: false, error: 'No working proxy found' };
+  } catch (err) {
+    console.error('[ProxyFinder] Error:', err);
+    return { success: false, error: err.message };
+  }
 });
 
 // App lifecycle

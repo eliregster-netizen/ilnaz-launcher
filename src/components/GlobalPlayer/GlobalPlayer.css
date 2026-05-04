@@ -120,7 +120,6 @@
 
 .volume-popup input[type="range"] {
   writing-mode: bt-lr;
-  -webkit-appearance: slider-vertical;
   width: 4px;
   height: 80px;
   background: var(--glass-border, rgba(255,255,255,0.1));

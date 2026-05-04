@@ -77,4 +77,6 @@ contextBridge.exposeInMainWorld('electron', {
   importThemeFile: (filePath) => ipcRenderer.invoke('import-theme-file', filePath),
   selectThemeFile: () => ipcRenderer.invoke('select-theme-file'),
   saveThemeFile: (themeData) => ipcRenderer.invoke('save-theme-file', themeData),
+  findWorkingProxy: () => ipcRenderer.invoke('find-working-proxy'),
+  setProxy: (proxyRules) => ipcRenderer.invoke('set-proxy', proxyRules),
 });

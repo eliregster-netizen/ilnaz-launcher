@@ -32,6 +32,8 @@ export const MusicProvider = ({ children }) => {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [favorites, setFavorites] = useState(getFavorites);
+  const [currentPlaylist, setCurrentPlaylist] = useState(null); // Array of tracks or null
+  const [currentTrackIndex, setCurrentTrackIndex] = useState(-1); // Index in currentPlaylist
 
   // Сохраняем громкость
   useEffect(() => {
@@ -127,9 +129,11 @@ export const MusicProvider = ({ children }) => {
     }
   }, [currentTrack, isPlaying]);
 
-  const playTrack = useCallback((track) => {
-    setCurrentTrack(track);
-  }, []);
+const playTrack = useCallback((track, playlist = null, trackIndex = -1) => {
+  setCurrentTrack(track);
+  setCurrentPlaylist(playlist);
+  setCurrentTrackIndex(trackIndex);
+}, []);
 
   const togglePlay = useCallback(() => {
     setIsPlaying(prev => !prev);
@@ -158,35 +162,61 @@ export const MusicProvider = ({ children }) => {
     return favorites.includes(trackId);
   }, [favorites]);
 
-  const stop = useCallback(() => {
-    const audio = getAudio();
-    audio.pause();
-    audio.currentTime = 0;
-    setCurrentTrack(null);
-    setIsPlaying(false);
-    setCurrentTime(0);
-    setDuration(0);
-  }, []);
+const stop = useCallback(() => {
+  const audio = getAudio();
+  audio.pause();
+  audio.currentTime = 0;
+  setCurrentTrack(null);
+  setIsPlaying(false);
+  setCurrentTime(0);
+  setDuration(0);
+  setCurrentPlaylist(null);
+  setCurrentTrackIndex(-1);
+}, []);
 
-  return (
-    <MusicContext.Provider value={{
-      currentTrack,
-      isPlaying,
-      volume,
-      currentTime,
-      duration,
-      favorites,
-      playTrack,
-      togglePlay,
-      seekTo,
-      setVolumeLevel,
-      toggleFavorite,
-      isFavorite,
-      stop,
-    }}>
-      {children}
-    </MusicContext.Provider>
-  );
+const playNext = useCallback(() => {
+  if (!currentPlaylist || currentTrackIndex < 0) return;
+  const nextIndex = currentTrackIndex + 1;
+  if (nextIndex < currentPlaylist.length) {
+    const nextTrack = currentPlaylist[nextIndex];
+    setCurrentTrack(nextTrack);
+    setCurrentTrackIndex(nextIndex);
+  }
+}, [currentPlaylist, currentTrackIndex]);
+
+const playPrevious = useCallback(() => {
+  if (!currentPlaylist || currentTrackIndex <= 0) return;
+  const prevIndex = currentTrackIndex - 1;
+  const prevTrack = currentPlaylist[prevIndex];
+  setCurrentTrack(prevTrack);
+  setCurrentTrackIndex(prevIndex);
+}, [currentPlaylist, currentTrackIndex]);
+
+return (
+  <MusicContext.Provider value={{
+    currentTrack,
+    isPlaying,
+    volume,
+    currentTime,
+    duration,
+    favorites,
+    playTrack,
+    togglePlay,
+    seekTo,
+    setVolumeLevel,
+    toggleFavorite,
+    isFavorite,
+    stop,
+    playNext,
+    playPrevious,
+    currentPlaylist,
+    setCurrentPlaylist,
+    currentTrackIndex,
+    setCurrentTrackIndex
+  }}>
+  {children}
+</MusicContext.Provider>
+);
 };
 
 export const useMusic = () => {

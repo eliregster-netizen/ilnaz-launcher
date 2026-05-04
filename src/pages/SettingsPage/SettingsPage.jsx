@@ -207,6 +207,90 @@ const SettingsPage = () => {
     </Card>
   );
 
+  const [proxyEditing, setProxyEditing] = useState(false);
+  const proxy = settings.proxy || {};
+  const updateProxy = (values) => updateGroup('proxy', { ...proxy, ...values });
+  const [proxySearching, setProxySearching] = useState(false);
+  const [proxySearchResult, setProxySearchResult] = useState(null);
+
+  const handleFindProxy = async () => {
+    setProxySearching(true);
+    setProxySearchResult(null);
+    try {
+      const result = await window.electron?.findWorkingProxy?.();
+      if (result?.success) {
+        const [host, port] = result.proxy.split(':');
+        updateProxy({ enabled: true, host, port });
+        setProxySearchResult({ success: true, message: `Найден рабочий прокси: ${result.proxy}` });
+      } else {
+        setProxySearchResult({ success: false, message: result?.error || 'Прокси не найден' });
+      }
+    } catch (err) {
+      setProxySearchResult({ success: false, message: err.message });
+    } finally {
+      setProxySearching(false);
+    }
+  };
+
+  const renderProxy = () => (
+    <Card icon={ICONS.globe} title="Прокси-сервер" description="Для обхода блокировок в браузере" category="network">
+      <div className="s-proxy-find">
+        <button className="s-proxy-btn" onClick={handleFindProxy} disabled={proxySearching}>
+          {proxySearching ? (
+            <>
+              <span className="spinner" />
+              Поиск...
+            </>
+          ) : (
+            <>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="18" height="18">
+                <circle cx="12" cy="12" r="3" />
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83l-1.42 1.42a2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 2 2 0 0 1-1-1.73V17a2 2 0 0 1 2-2h.09a1.65 1.65 0 0 0 1.74-1.74 2 2 0 0 1 1.73-1H21a2 2 0 0 1 2 2v.09a2 2 0 0 1-1.73 1" />
+              </svg>
+              Найти рабочий прокси
+            </>
+          )}
+        </button>
+        {proxySearchResult && (
+          <span className={`s-proxy-result ${proxySearchResult.success ? 'success' : 'error'}`}>
+            {proxySearchResult.success ? (
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
+                <path d="M20 6L9 17l-5-5" />
+              </svg>
+            ) : (
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
+                <circle cx="12" cy="12" r="10" />
+                <path d="M15 9l-6 6M9 9l6 6" />
+              </svg>
+            )}
+            {proxySearchResult.message}
+          </span>
+        )}
+      </div>
+      {proxy.enabled && (
+        <div className="s-proxy-fields">
+          <div className="s-proxy-row">
+            <label>Хост</label>
+            <input className="s-proxy-input" value={proxy.host || ''} onChange={e => updateProxy({ host: e.target.value })} placeholder="proxy.example.com" />
+          </div>
+          <div className="s-proxy-row">
+            <label>Порт</label>
+            <input className="s-proxy-input" value={proxy.port || ''} onChange={e => updateProxy({ port: e.target.value })} placeholder="8080" type="number" />
+          </div>
+          <div className="s-proxy-row">
+            <label>Логин (опц.)</label>
+            <input className="s-proxy-input" value={proxy.username || ''} onChange={e => updateProxy({ username: e.target.value })} placeholder="user" />
+          </div>
+          <div className="s-proxy-row">
+            <label>Пароль (опц.)</label>
+            <input className="s-proxy-input" type="password" value={proxy.password || ''} onChange={e => updateProxy({ password: e.target.value })} placeholder="password" />
+          </div>
+          <p className="s-proxy-hint">Поддерживается: HTTP, HTTPS, SOCKS5 (формат: host:port)</p>
+        </div>
+      )}
+    </Card>
+  );
+
   return (
     <div className="settings-page">
       <div className="settings-top">
@@ -232,6 +316,7 @@ const SettingsPage = () => {
         {renderNotifications()}
         {renderLanguage()}
         {renderServer()}
+        {renderProxy()}
       </div>
     </div>
   );

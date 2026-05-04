@@ -232,7 +232,7 @@ export async function refreshSession() {
 }
 
 export async function adminGetUsers() {
-  const res = await fetch(`${getApiUrl()}/api/admin/users`, {
+  const res = await fetch(`${getApiUrl()}/admin/users`, {
     headers: authHeaders(false),
   });
   if (!res.ok) {
@@ -269,7 +269,7 @@ export async function adminEditUser(userId, data) {
 }
 
 export async function adminGetStats() {
-  const res = await fetch(`${getApiUrl()}/api/admin/stats`, {
+  const res = await fetch(`${getApiUrl()}/admin/stats`, {
     headers: authHeaders(false),
   });
   if (!res.ok) {

@@ -864,6 +864,25 @@ const storage = multer.diskStorage({
 const upload = multer({ storage, limits: { fileSize: 100 * 1024 * 1024 } }); // 100MB max
 
 app.use('/music', express.static(MUSIC_DIR));
+const UPLOADS_DIR = path.join(process.cwd(), 'uploads');
+if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+app.use('/uploads', express.static(UPLOADS_DIR));
+
+// Serve default placeholders for missing files
+app.use(['/music/:filename', '/uploads/covers/:filename'], (req, res, next) => {
+  if (req.method !== 'GET') return next();
+  const filePath = path.join(req.path.includes('/music') ? MUSIC_DIR : UPLOADS_DIR, req.params.filename);
+  if (!fs.existsSync(filePath)) {
+    const isImage = req.path.includes('/covers');
+    const defaultFile = isImage 
+      ? path.join(__dirname, '../public/default-cover.jpg')
+      : path.join(__dirname, '../public/default-track.mp3');
+    if (fs.existsSync(defaultFile)) {
+      return res.sendFile(defaultFile);
+    }
+  }
+  next();
+});
 
 app.get('/api/music', async (_req, res) => {
   try {
@@ -897,7 +916,22 @@ app.post('/api/music', authenticateToken, upload.single('file'), async (req, res
 });
 
 app.delete('/api/music/:trackId', authenticateToken, async (req, res) => {
-  // ... existing code ...
+  try {
+    const trackId = req.params.trackId;
+    let track = await music.findOne({ id: trackId });
+    if (!track) track = await music.findOne({ _id: new ObjectId(trackId) });
+    if (!track) return res.status(404).json({ error: 'Track not found' });
+    
+    const user = await getUser(req.userId);
+    if (user.role !== 'admin' && user.role !== 'owner' && track.authorId !== req.userId) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+    
+    const filePath = path.join(MUSIC_DIR, track.filename);
+    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    await music.deleteOne({ id: trackId });
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 // === PLAYLISTS API ===
