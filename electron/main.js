@@ -372,6 +372,10 @@ ipcMain.handle('maximize-app', () => {
   if (mainWindow.isMaximized()) mainWindow.unmaximize();
   else mainWindow.maximize();
 });
+ipcMain.handle('set-always-on-top', (_event, value) => {
+  mainWindow.setAlwaysOnTop(value);
+  return { success: true };
+});
 
 // App lifecycle
 app.whenReady().then(() => {
