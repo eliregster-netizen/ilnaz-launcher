@@ -417,7 +417,7 @@ const getToken = () => localStorage.getItem('ilnaz-token');
                     {theme.data?.author && (
                       <p className="theme-author">
                         by {theme.data.author}
-                        <VerifyBadge role={theme.authorRole} size="sm" />
+                        <VerifyBadge role={theme.authorRole} size="sm" style={{ marginLeft: '5px' }} />
                       </p>
                     )}
                     {theme.description && <p className="theme-desc">{theme.description}</p>}
