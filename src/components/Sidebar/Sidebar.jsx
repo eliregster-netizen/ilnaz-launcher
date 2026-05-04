@@ -30,6 +30,7 @@ const Sidebar = ({ profile }) => {
     { path: '/friends', icon: 'friends', label: 'Друны' },
     { path: '/chat', icon: 'chat', label: 'Чат' },
     { path: '/themes', icon: 'themes', label: 'Темы' },
+    { path: '/music', icon: 'music', label: 'Музыка' },
     { path: '/settings', icon: 'settings', label: 'Настройки' },
     { path: '/profile', icon: 'profile', label: 'Profile' },
   ];
@@ -82,6 +83,14 @@ const Sidebar = ({ profile }) => {
         return (
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" />
+          </svg>
+        );
+      case 'music':
+        return (
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M9 18V5l12-2v13" />
+            <circle cx="6" cy="18" r="3" />
+            <circle cx="18" cy="16" r="3" />
           </svg>
         );
       case 'profile':

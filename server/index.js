@@ -6,6 +6,9 @@ const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { MongoClient, ObjectId } = require('mongodb');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 
 const app = express();
 const server = http.createServer(app);
@@ -47,6 +50,7 @@ async function connectDB() {
   conversationMembers = db.collection('conversation_members');
   messages = db.collection('messages');
   publicThemes = db.collection('public_themes');
+  music = db.collection('music');
   console.log('MongoDB connected');
 }
 
@@ -761,12 +765,13 @@ app.post('/api/themes/publish', authenticateToken, async (req, res) => {
       name: themeData.name,
       author: user ? user.nickname : 'Аноним',
       authorId: req.userId,
+      authorRole: user?.role || null,
       version: themeData.version,
       description: themeData.description,
       launcherTitle: themeData.launcherTitle,
       colors: themeData.colors,
       background: themeData.background,
-      data: themeData,
+      data: { ...themeData, author: user ? user.nickname : 'Аноним', authorRole: user?.role || null },
       created_at: new Date().toISOString(),
       downloads: 0,
     };
@@ -838,4 +843,66 @@ app.delete('/api/themes/public/:themeId', authenticateToken, async (req, res) =>
 });
 
 const PORT = process.env.PORT || 3001;
+
+// ============ MUSIC API ============
+const MUSIC_DIR = path.join(process.cwd(), 'music');
+if (!fs.existsSync(MUSIC_DIR)) fs.mkdirSync(MUSIC_DIR, { recursive: true });
+
+const storage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, MUSIC_DIR),
+  filename: (_req, file, cb) => {
+    const id = generateId();
+    const ext = path.extname(file.originalname);
+    cb(null, `${id}${ext}`);
+  }
+});
+const upload = multer({ storage, limits: { fileSize: 100 * 1024 * 1024 } }); // 100MB max
+
+app.use('/music', express.static(MUSIC_DIR));
+
+app.get('/api/music', async (_req, res) => {
+  try {
+    const tracks = await music.find().sort({ created_at: -1 }).toArray();
+    res.json({ tracks });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/music', authenticateToken, upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+    const user = await getUser(req.userId);
+    const track = {
+      id: generateId(),
+      filename: req.file.filename,
+      originalName: req.file.originalname,
+      author: user ? user.nickname : 'Аноним',
+      authorId: req.userId,
+      authorRole: user?.role || null,
+      size: req.file.size,
+      format: path.extname(req.file.originalname).slice(1).toLowerCase(),
+      path: `/music/${req.file.filename}`,
+      created_at: new Date().toISOString(),
+    };
+    await music.insertOne(track);
+    res.json({ success: true, track });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.delete('/api/music/:trackId', authenticateToken, async (req, res) => {
+  try {
+    const trackId = req.params.trackId;
+    let track = await music.findOne({ id: trackId });
+    if (!track) track = await music.findOne({ _id: new ObjectId(trackId) });
+    if (!track) return res.status(404).json({ error: 'Track not found' });
+    const user = await getUser(req.userId);
+    if (user.role !== 'admin' && user.role !== 'owner' && track.authorId !== req.userId) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+    const filePath = path.join(MUSIC_DIR, track.filename);
+    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    await music.deleteOne({ id: trackId });
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 server.listen(PORT, () => console.log(`ILNAZ GAMING SERVER running on port ${PORT}`));

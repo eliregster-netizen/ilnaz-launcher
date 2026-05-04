@@ -414,9 +414,9 @@ const getToken = () => localStorage.getItem('ilnaz-token');
                     <div className="theme-name-row">
                       <h4 className="theme-name">{theme.name}</h4>
                     </div>
-                    {theme.data?.author && (
+                    {(theme.data?.author || theme.author) && (
                       <p className="theme-author">
-                        by {theme.data.author}
+                        by {theme.data?.author || theme.author}
                         <VerifyBadge role={theme.authorRole} size="sm" style={{ marginLeft: '5px' }} />
                       </p>
                     )}
@@ -444,8 +444,8 @@ const getToken = () => localStorage.getItem('ilnaz-token');
                         </svg>
                       </button>
                     )}
-                    {theme.authorId === currentUserId && (
-                      <button className="theme-action-btn theme-action-danger" onClick={(e) => { e.stopPropagation(); deletePublicTheme(theme.id, theme); }} title="Удалить из каталога">
+                    {(theme.authorId === currentUserId || theme.data?.authorId === currentUserId) && (
+                      <button className="theme-action-btn theme-action-danger" onClick={(e) => { e.stopPropagation(); deletePublicTheme(theme.id || theme._id, theme); }} title="Удалить из каталога">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
                           <polyline points="3 6 5 6 21 6" />
                           <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />

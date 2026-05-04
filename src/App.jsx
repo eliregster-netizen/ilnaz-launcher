@@ -12,6 +12,7 @@ import UserProfile from './pages/UserProfile';
 import Admin from './pages/Admin';
 import SettingsPage from './pages/SettingsPage/SettingsPage';
 import ThemeManager from './pages/ThemeManager';
+import Music from './pages/Music/Music';
 import { SettingsProvider } from './context/SettingsContext';
 import {
   getActiveUser,
@@ -116,6 +117,7 @@ const AppContent = () => {
           <Route path="/chat" element={<Chat />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="/themes" element={<ThemeManager />} />
+          <Route path="/music" element={<Music />} />
           <Route path="/settings" element={<SettingsPage />} />
         </Routes>
       </main>
