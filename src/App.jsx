@@ -130,10 +130,7 @@ const AppContent = () => {
 const App = () => (
   <SettingsProvider>
     <ThemeProvider>
-      <MusicProvider>
-        <AppContent />
-        <GlobalPlayer />
-      </MusicProvider>
+      <AppContent />
     </ThemeProvider>
   </SettingsProvider>
 );

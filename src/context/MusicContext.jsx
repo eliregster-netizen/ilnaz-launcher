@@ -1,5 +1,4 @@
-import { createContext, useContext, useState, useRef, useCallback, useEffect } from 'react';
-import { getServerUrl } from '../config';
+import { createContext, useContext, useState, useCallback, useEffect } from 'react';
 
 const FAVORITES_KEY = 'ilnaz-music-favorites';
 
@@ -14,6 +13,15 @@ const saveFavorites = (favorites) => {
 
 const MusicContext = createContext(null);
 
+// Audio instance stored outside React tree
+let audioInstance = null;
+const getAudio = () => {
+  if (!audioInstance) {
+    audioInstance = new Audio();
+  }
+  return audioInstance;
+};
+
 export const MusicProvider = ({ children }) => {
   const [currentTrack, setCurrentTrack] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -24,72 +32,120 @@ export const MusicProvider = ({ children }) => {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [favorites, setFavorites] = useState(getFavorites);
-  const audioRef = useRef(null);
 
   useEffect(() => {
     localStorage.setItem('ilnaz-music-volume', volume.toString());
   }, [volume]);
 
+  // Audio effect - separate effect that doesn't use refs
   useEffect(() => {
-    if (currentTrack && isPlaying) {
-      window.electron?.setMusicPresence?.({
-        name: currentTrack.originalName,
-        author: currentTrack.author
-      });
-    } else if (!currentTrack) {
-      window.electron?.setMusicPresence?.(null);
+    const audio = getAudio();
+    
+    const onEnded = () => setIsPlaying(false);
+    const onTimeUpdate = () => setCurrentTime(audio.currentTime);
+    const onLoadedMetadata = () => setDuration(audio.duration || 0);
+    const onPlay = () => setIsPlaying(true);
+    const onPause = () => setIsPlaying(false);
+    
+    audio.addEventListener('ended', onEnded);
+    audio.addEventListener('timeupdate', onTimeUpdate);
+    audio.addEventListener('loadedmetadata', onLoadedMetadata);
+    audio.addEventListener('play', onPlay);
+    audio.addEventListener('pause', onPause);
+    
+    return () => {
+      audio.removeEventListener('ended', onEnded);
+      audio.removeEventListener('timeupdate', onTimeUpdate);
+      audio.removeEventListener('loadedmetadata', onLoadedMetadata);
+      audio.removeEventListener('play', onPlay);
+      audio.removeEventListener('pause', onPause);
+    };
+  }, []);
+
+  // Track change effect
+  useEffect(() => {
+    const audio = getAudio();
+    if (!currentTrack) {
+      audio.pause();
+      audio.src = '';
+      return;
     }
-  }, [currentTrack, isPlaying]);
+    
+    const serverUrl = (() => {
+      try {
+        const stored = localStorage.getItem('ilnaz-server-url');
+        if (stored) return stored;
+      } catch (e) {}
+      return 'https://ilnaz-launcher.onrender.com';
+    })();
+    
+    audio.src = `${serverUrl}${currentTrack.path}`;
+    audio.volume = volume;
+    if (isPlaying) {
+      audio.play().catch(() => {});
+    }
+  }, [currentTrack?.id]);
+
+  // Play/pause effect
+  useEffect(() => {
+    const audio = getAudio();
+    if (!currentTrack) return;
+    
+    if (isPlaying) {
+      audio.play().catch(() => {});
+    } else {
+      audio.pause();
+    }
+  }, [isPlaying]);
+
+  // Volume effect
+  useEffect(() => {
+    const audio = getAudio();
+    audio.volume = volume;
+  }, [volume]);
 
   const playTrack = useCallback((track) => {
     setCurrentTrack(track);
     setIsPlaying(true);
+    setCurrentTime(0);
+    setDuration(0);
   }, []);
 
   const togglePlay = useCallback(() => {
-    if (!audioRef.current) return;
-    if (isPlaying) {
-      audioRef.current.pause();
-    } else {
-      audioRef.current.play();
-    }
-    setIsPlaying(!isPlaying);
-  }, [isPlaying]);
+    setIsPlaying(prev => !prev);
+  }, []);
 
   const seekTo = useCallback((time) => {
-    if (audioRef.current) {
-      audioRef.current.currentTime = time;
-      setCurrentTime(time);
-    }
+    const audio = getAudio();
+    audio.currentTime = time;
   }, []);
 
   const setVolumeLevel = useCallback((level) => {
-    const newVolume = Math.max(0, Math.min(1, level));
-    setVolume(newVolume);
-    if (audioRef.current) {
-      audioRef.current.volume = newVolume;
-    }
+    setVolume(Math.max(0, Math.min(1, level)));
   }, []);
 
   const toggleFavorite = useCallback((trackId) => {
-    const newFavs = favorites.includes(trackId)
-      ? favorites.filter(id => id !== trackId)
-      : [...favorites, trackId];
-    setFavorites(newFavs);
-    saveFavorites(newFavs);
-  }, [favorites]);
+    setFavorites(prev => {
+      const newFavs = prev.includes(trackId)
+        ? prev.filter(id => id !== trackId)
+        : [...prev, trackId];
+      saveFavorites(newFavs);
+      return newFavs;
+    });
+  }, []);
 
   const isFavorite = useCallback((trackId) => {
     return favorites.includes(trackId);
   }, [favorites]);
 
   const stop = useCallback(() => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
-    }
+    const audio = getAudio();
+    audio.pause();
+    audio.currentTime = 0;
+    setCurrentTrack(null);
     setIsPlaying(false);
     setCurrentTime(0);
+    setDuration(0);
   }, []);
 
   return (
@@ -100,7 +156,6 @@ export const MusicProvider = ({ children }) => {
       currentTime,
       duration,
       favorites,
-      audioRef,
       playTrack,
       togglePlay,
       seekTo,
@@ -108,22 +163,8 @@ export const MusicProvider = ({ children }) => {
       toggleFavorite,
       isFavorite,
       stop,
-      setCurrentTrack,
-      setIsPlaying,
-      setCurrentTime,
-      setDuration,
     }}>
       {children}
-      {currentTrack && (
-        <audio
-          ref={audioRef}
-          src={`${getServerUrl()}${currentTrack.path}`}
-          onEnded={() => setIsPlaying(false)}
-          onTimeUpdate={() => setCurrentTime(audioRef.current?.currentTime || 0)}
-          onLoadedMetadata={() => setDuration(audioRef.current?.duration || 0)}
-          autoPlay
-        />
-      )}
     </MusicContext.Provider>
   );
 };

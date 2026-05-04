@@ -1,15 +1,18 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { getServerUrl } from '../../config';
 import { login, getActiveUser } from '../../utils/auth';
-import { useMusic } from '../../context/MusicContext';
 import VerifyBadge from '../../components/VerifyBadge/VerifyBadge';
 import './Music.css';
 
-const formatTime = (seconds) => {
-  if (!seconds || isNaN(seconds)) return '0:00';
-  const mins = Math.floor(seconds / 60);
-  const secs = Math.floor(seconds % 60);
-  return `${mins}:${secs.toString().padStart(2, '0')}`;
+const FAVORITES_KEY = 'ilnaz-music-favorites';
+
+const getFavorites = () => {
+  try { return JSON.parse(localStorage.getItem(FAVORITES_KEY)) || []; } 
+  catch { return []; }
+};
+
+const saveFavorites = (favorites) => {
+  localStorage.setItem(FAVORITES_KEY, JSON.stringify(favorites));
 };
 
 const Music = () => {
@@ -18,24 +21,8 @@ const Music = () => {
   const [error, setError] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [activeTab, setActiveTab] = useState('all');
+  const [favorites, setFavorites] = useState(getFavorites);
   const fileInputRef = useRef(null);
-  
-  const { 
-    currentTrack, 
-    isPlaying, 
-    volume,
-    currentTime,
-    duration,
-    favorites,
-    playTrack, 
-    togglePlay,
-    setVolumeLevel,
-    toggleFavorite,
-    isFavorite,
-    seekTo,
-    setDuration,
-  } = useMusic();
-  
   const currentUser = getActiveUser();
   const currentUserId = currentUser?.id;
 
@@ -54,6 +41,14 @@ const Music = () => {
   }, []);
 
   useEffect(() => { loadTracks(); }, [loadTracks]);
+
+  const toggleFavorite = (trackId) => {
+    const newFavs = favorites.includes(trackId)
+      ? favorites.filter(id => id !== trackId)
+      : [...favorites, trackId];
+    setFavorites(newFavs);
+    saveFavorites(newFavs);
+  };
 
   const handleUpload = async (e) => {
     const file = e.target.files?.[0];
@@ -122,19 +117,6 @@ const Music = () => {
     return (bytes / (1024 * 1024)).toFixed(1) + ' МБ';
   };
 
-  const handlePlayTrack = (track) => {
-    if (currentTrack?.id === track.id) {
-      togglePlay();
-    } else {
-      playTrack(track);
-    }
-  };
-
-  const handleSeek = (e) => {
-    const newTime = parseFloat(e.target.value);
-    seekTo(newTime);
-  };
-
   const displayedTracks = activeTab === 'favorites' 
     ? tracks.filter(t => favorites.includes(t.id))
     : tracks;
@@ -142,7 +124,7 @@ const Music = () => {
   return (
     <div className="music-page">
       <div className="music-header">
-        <h1>Музыка</h1>
+        <h1>Музыка (тест без аудио)</h1>
         <div className="music-actions">
           <button className="music-btn" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
             {uploading ? 'Загрузка...' : 'Загрузить трек'}
@@ -165,45 +147,6 @@ const Music = () => {
 
       {error && <div className="music-error">{error}</div>}
 
-      {currentTrack && (
-        <div className="music-player">
-          <div className="player-info">
-            <span className="player-name">{currentTrack.originalName}</span>
-            <span className="player-author">
-              published by {currentTrack.author}
-              <VerifyBadge role={currentTrack.authorRole} size="sm" style={{ marginLeft: '5px' }} />
-            </span>
-          </div>
-          <div className="player-controls">
-            <button className="player-btn" onClick={togglePlay}>
-              {isPlaying ? '⏸' : '▶'}
-            </button>
-            <span className="player-time">{formatTime(currentTime)}</span>
-            <input 
-              type="range" 
-              className="player-seek"
-              min="0" 
-              max={duration || 100}
-              value={currentTime}
-              onChange={handleSeek}
-            />
-            <span className="player-time">{formatTime(duration)}</span>
-            <div className="player-volume">
-              <span>🔊</span>
-              <input 
-                type="range" 
-                className="volume-slider"
-                min="0" 
-                max="1" 
-                step="0.01"
-                value={volume}
-                onChange={(e) => setVolumeLevel(parseFloat(e.target.value))}
-              />
-            </div>
-          </div>
-        </div>
-      )}
-
       <div className="music-list">
         {displayedTracks.length === 0 && !loading && (
           <div className="music-empty">
@@ -213,12 +156,9 @@ const Music = () => {
         {displayedTracks.map(track => (
           <div 
             key={track.id} 
-            className={`music-track ${currentTrack?.id === track.id ? 'active' : ''}`}
-            onClick={() => handlePlayTrack(track)}
+            className="music-track"
           >
-            <div className="track-play">
-              {currentTrack?.id === track.id && isPlaying ? '⏸' : '▶'}
-            </div>
+            <div className="track-play">▶</div>
             <div className="track-info">
               <span className="track-name">{track.originalName}</span>
               <span className="track-author">
@@ -227,11 +167,10 @@ const Music = () => {
               </span>
             </div>
             <button 
-              className={`track-favorite ${isFavorite(track.id) ? 'active' : ''}`}
+              className={`track-favorite ${favorites.includes(track.id) ? 'active' : ''}`}
               onClick={(e) => { e.stopPropagation(); toggleFavorite(track.id); }}
-              title={isFavorite(track.id) ? 'Убрать из избранного' : 'В избранное'}
             >
-              {isFavorite(track.id) ? '♥' : '♡'}
+              {favorites.includes(track.id) ? '♥' : '♡'}
             </button>
             <div className="track-meta">
               <span>{track.format.toUpperCase()}</span>
@@ -241,7 +180,6 @@ const Music = () => {
               <button 
                 className="track-delete" 
                 onClick={(e) => { e.stopPropagation(); handleDelete(track.id); }}
-                title="Удалить"
               >
                 ✕
               </button>
