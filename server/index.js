@@ -51,6 +51,7 @@ async function connectDB() {
   messages = db.collection('messages');
   publicThemes = db.collection('public_themes');
   music = db.collection('music');
+  playlists = db.collection('playlists');
   console.log('MongoDB connected');
 }
 

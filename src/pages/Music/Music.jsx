@@ -21,7 +21,6 @@ const Music = () => {
   const [playlists, setPlaylists] = useState([]);
   const [showPlaylistModal, setShowPlaylistModal] = useState(false);
   const [editingPlaylist, setEditingPlaylist] = useState(null);
-  const fileInputRef = useRef(null);
   
   const { 
     currentTrack, 
@@ -243,7 +242,7 @@ const Music = () => {
 
   const handleTrackEnded = useCallback(() => {
     // Update duration when track ends
-    if (currentTrack && audioRef.current?.duration) {
+    if (currentTrack && duration > 0) {
       const serverUrl = getServerUrl();
       fetch(`${serverUrl}/api/music/${currentTrack.id}/duration`, {
         method: 'POST',
@@ -251,17 +250,10 @@ const Music = () => {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('ilnaz-token')}`
         },
-        body: JSON.stringify({ duration: audioRef.current.duration })
+        body: JSON.stringify({ duration })
       }).catch(() => {});
     }
-  }, [currentTrack]);
-
-  useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
-    audio.addEventListener('ended', handleTrackEnded);
-    return () => audio.removeEventListener('ended', handleTrackEnded);
-  }, [handleTrackEnded]);
+  }, [currentTrack, duration]);
 
   const handleSeek = (e) => {
     seekTo(parseFloat(e.target.value));
