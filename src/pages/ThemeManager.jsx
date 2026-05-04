@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import { getApiUrl, getServerUrl } from '../config';
 import { login, getActiveUser } from '../utils/auth';
-
+import ThemeCard from '../components/ThemeCard/ThemeCard';
 import './ThemeManager.css';
 
 const TABS = [
