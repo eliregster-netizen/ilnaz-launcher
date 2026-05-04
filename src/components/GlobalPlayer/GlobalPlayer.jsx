@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useMusic } from '../../context/MusicContext';
+import { getServerUrl } from '../../config';
 import VerifyBadge from '../VerifyBadge/VerifyBadge';
 import './GlobalPlayer.css';
 
@@ -76,7 +77,11 @@ const GlobalPlayer = () => {
         <div className="player-expanded">
           <div className="expanded-info">
             <div className="expanded-cover">
-              <span className="music-icon">🎵</span>
+              {currentTrack.cover ? (
+                <img src={`${getServerUrl()}${currentTrack.cover}`} alt="" />
+              ) : (
+                <span className="music-icon">🎵</span>
+              )}
             </div>
             <div className="expanded-details">
               <h3>{currentTrack.originalName}</h3>

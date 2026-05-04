@@ -3,6 +3,7 @@ import { getServerUrl } from '../../config';
 import { login, getActiveUser } from '../../utils/auth';
 import { useMusic } from '../../context/MusicContext';
 import VerifyBadge from '../../components/VerifyBadge/VerifyBadge';
+import PlaylistEditor from '../../components/PlaylistEditor/PlaylistEditor';
 import './Music.css';
 
 const formatTime = (seconds) => {
@@ -21,6 +22,8 @@ const Music = () => {
   const [playlists, setPlaylists] = useState([]);
   const [showPlaylistModal, setShowPlaylistModal] = useState(false);
   const [editingPlaylist, setEditingPlaylist] = useState(null);
+  const fileInputRef = useRef(null);
+  const coverInputRef = useRef(null);
   
   const { 
     currentTrack, 
