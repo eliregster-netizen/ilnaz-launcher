@@ -776,7 +776,9 @@ app.post('/api/themes/publish', authenticateToken, async (req, res) => {
 
 app.post('/api/themes/download/:themeId', async (req, res) => {
   try {
+    console.log('Download request for:', req.params.themeId);
     const theme = await publicThemes.findOne({ id: req.params.themeId });
+    console.log('Found theme:', theme ? theme.name : 'null');
     if (!theme) return res.status(404).json({ error: 'Theme not found' });
     await publicThemes.updateOne({ id: req.params.themeId }, { $inc: { downloads: 1 } });
     if (theme.authorId) {
@@ -792,21 +794,31 @@ app.post('/api/themes/download/:themeId', async (req, res) => {
       launcherTitle: theme.launcherTitle,
       colors: theme.colors,
     };
-    console.log('Download theme:', theme.name, 'has data:', !!theme.data, 'has colors:', !!theme.colors);
+    console.log('Returning data:', fullData.name);
     res.json({ success: true, data: fullData });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { 
+    console.error('Download error:', err);
+    res.status(500).json({ error: err.message }); 
+  }
 });
 
 app.delete('/api/themes/public/:themeId', authenticateToken, async (req, res) => {
   try {
+    console.log('Delete request for:', req.params.themeId);
     const theme = await publicThemes.findOne({ id: req.params.themeId });
     if (!theme) return res.status(404).json({ error: 'Theme not found' });
     const user = await getUser(req.userId);
+    console.log('User:', user?.id, 'Theme author:', theme.authorId);
     if (!user || (user.role !== 'admin' && user.role !== 'owner' && theme.authorId !== req.userId)) {
       return res.status(403).json({ error: 'Forbidden' });
     }
     await publicThemes.deleteOne({ id: req.params.themeId });
     res.json({ success: true });
+  } catch (err) { 
+    console.error('Delete error:', err);
+    res.status(500).json({ error: err.message }); 
+  }
+});
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
