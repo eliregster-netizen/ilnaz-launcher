@@ -21,6 +21,7 @@ const ThemeManager = () => {
   const [search, setSearch] = useState('');
   const [dragOver, setDragOver] = useState(false);
   const [publishing, setPublishing] = useState(null);
+  const [downloading, setDownloading] = useState(null);
   const [publicThemes, setPublicThemes] = useState([]);
   const [loadingPublic, setLoadingPublic] = useState(false);
   const [publicError, setPublicError] = useState(null);
@@ -123,20 +124,20 @@ const getToken = () => localStorage.getItem('ilnaz-token');
   };
 
   const downloadTheme = async (themeData) => {
+    const themeId = themeData._id || themeData.id;
+    if (!themeId) {
+      alert('ID темы не найден');
+      return;
+    }
+    setDownloading(themeId);
     try {
-      const themeId = themeData._id || themeData.id;
-      console.log('Downloading theme, ID:', themeId, 'Full:', themeData);
-      if (!themeId) {
-        throw new Error('ID темы не найден');
-      }
+      console.log('Downloading theme, ID:', themeId);
       const token = getToken();
       const res = await fetch(`${getServerUrl()}/api/themes/download/${themeId}`, {
         method: 'POST',
         headers: token ? { 'Authorization': `Bearer ${token}` } : {},
       });
-      console.log('Response status:', res.status);
       const result = await res.json();
-      console.log('Download result:', result);
       if (!result.success) {
         throw new Error(result.error || 'Ошибка скачивания');
       }
@@ -152,6 +153,8 @@ const getToken = () => localStorage.getItem('ilnaz-token');
     } catch (e) {
       console.error('Download error:', e);
       alert('Ошибка: ' + e.message);
+    } finally {
+      setDownloading(null);
     }
   };
 
@@ -409,6 +412,9 @@ const getToken = () => localStorage.getItem('ilnaz-token');
                   <div className="theme-info">
                     <div className="theme-name-row">
                       <h4 className="theme-name">{theme.name}</h4>
+                      {(theme.authorRole === 'admin' || theme.authorRole === 'owner') && (
+                        <span className="theme-admin-badge">{theme.authorRole === 'owner' ? '👑 Владелец' : '⭐ Админ'}</span>
+                      )}
                     </div>
                     {theme.data?.author && <p className="theme-author">by {theme.data.author}</p>}
                     {theme.description && <p className="theme-desc">{theme.description}</p>}
@@ -420,13 +426,21 @@ const getToken = () => localStorage.getItem('ilnaz-token');
                     </div>
                   </div>
                   <div className="theme-actions">
-                    <button className="theme-action-btn" onClick={(e) => { e.stopPropagation(); downloadTheme(theme); }} title="Скачать">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                        <polyline points="7 10 12 15 17 10" />
-                        <line x1="12" y1="15" x2="12" y2="3" />
-                      </svg>
-                    </button>
+                    {downloading === (theme._id || theme.id) ? (
+                      <button className="theme-action-btn" disabled title="Загрузка...">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14" className="spinning">
+                          <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                        </svg>
+                      </button>
+                    ) : (
+                      <button className="theme-action-btn" onClick={(e) => { e.stopPropagation(); downloadTheme(theme); }} title="Скачать">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
+                          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                          <polyline points="7 10 12 15 17 10" />
+                          <line x1="12" y1="15" x2="12" y2="3" />
+                        </svg>
+                      </button>
+                    )}
                     {theme.authorId === currentUserId && (
                       <button className="theme-action-btn theme-action-danger" onClick={(e) => { e.stopPropagation(); deletePublicTheme(theme.id, theme); }} title="Удалить из каталога">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">

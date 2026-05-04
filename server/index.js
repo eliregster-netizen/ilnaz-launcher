@@ -727,6 +727,7 @@ app.get('/api/themes/public', async (req, res) => {
       if (t.authorId) {
         const u = await users.findOne({ id: t.authorId });
         t.authorAvatar = u?.avatar || null;
+        t.authorRole = u?.role || null;
       }
       // Merge data fields if they exist separately
       if (t.data && !t.colors) {
