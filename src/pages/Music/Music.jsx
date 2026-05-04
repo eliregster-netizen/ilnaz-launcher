@@ -1,10 +1,17 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { getServerUrl } from '../../config';
 import { login, getActiveUser } from '../../utils/auth';
 import { useMusic } from '../../context/MusicContext';
 import VerifyBadge from '../../components/VerifyBadge/VerifyBadge';
 import PlaylistEditor from '../../components/PlaylistEditor/PlaylistEditor';
 import './Music.css';
+
+const getServerUrl = () => {
+  try {
+    const stored = localStorage.getItem('ilnaz-server-url');
+    if (stored) return stored;
+  } catch (e) {}
+  return 'https://ilnaz-launcher.onrender.com';
+};
 
 const formatTime = (seconds) => {
   if (!seconds || isNaN(seconds)) return '0:00';
