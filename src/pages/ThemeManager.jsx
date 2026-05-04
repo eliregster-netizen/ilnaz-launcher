@@ -4,6 +4,7 @@ import { getApiUrl, getServerUrl } from '../config';
 import { login, getActiveUser } from '../utils/auth';
 import ThemeCard from '../components/ThemeCard/ThemeCard';
 import ThemeEditor from '../components/ThemeEditor/ThemeEditor';
+import VerifyBadge from '../components/VerifyBadge/VerifyBadge';
 import './ThemeManager.css';
 
 const TABS = [
@@ -412,11 +413,13 @@ const getToken = () => localStorage.getItem('ilnaz-token');
                   <div className="theme-info">
                     <div className="theme-name-row">
                       <h4 className="theme-name">{theme.name}</h4>
-                      {(theme.authorRole === 'admin' || theme.authorRole === 'owner') && (
-                        <span className="theme-admin-badge">{theme.authorRole === 'owner' ? '👑 Владелец' : '⭐ Админ'}</span>
-                      )}
                     </div>
-                    {theme.data?.author && <p className="theme-author">by {theme.data.author}</p>}
+                    {theme.data?.author && (
+                      <p className="theme-author">
+                        by {theme.data.author}
+                        <VerifyBadge role={theme.authorRole} size="sm" />
+                      </p>
+                    )}
                     {theme.description && <p className="theme-desc">{theme.description}</p>}
                     <div className="theme-color-dots">
                       <span style={{ background: c.accentPrimary || '#7b2ff7' }} />
