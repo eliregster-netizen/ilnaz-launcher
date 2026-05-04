@@ -33,7 +33,7 @@ const Music = () => {
     toggleFavorite,
     isFavorite,
     seekTo,
-    setDuration,
+    stop,
   } = useMusic();
   
   const currentUser = getActiveUser();
@@ -131,8 +131,7 @@ const Music = () => {
   };
 
   const handleSeek = (e) => {
-    const newTime = parseFloat(e.target.value);
-    seekTo(newTime);
+    seekTo(parseFloat(e.target.value));
   };
 
   const displayedTracks = activeTab === 'favorites' 
@@ -164,45 +163,6 @@ const Music = () => {
       </div>
 
       {error && <div className="music-error">{error}</div>}
-
-      {currentTrack && (
-        <div className="music-player">
-          <div className="player-info">
-            <span className="player-name">{currentTrack.originalName}</span>
-            <span className="player-author">
-              published by {currentTrack.author}
-              <VerifyBadge role={currentTrack.authorRole} size="sm" style={{ marginLeft: '5px' }} />
-            </span>
-          </div>
-          <div className="player-controls">
-            <button className="player-btn" onClick={togglePlay}>
-              {isPlaying ? '⏸' : '▶'}
-            </button>
-            <span className="player-time">{formatTime(currentTime)}</span>
-            <input 
-              type="range" 
-              className="player-seek"
-              min="0" 
-              max={duration || 100}
-              value={currentTime}
-              onChange={handleSeek}
-            />
-            <span className="player-time">{formatTime(duration)}</span>
-            <div className="player-volume">
-              <span>🔊</span>
-              <input 
-                type="range" 
-                className="volume-slider"
-                min="0" 
-                max="1" 
-                step="0.01"
-                value={volume}
-                onChange={(e) => setVolumeLevel(parseFloat(e.target.value))}
-              />
-            </div>
-          </div>
-        </div>
-      )}
 
       <div className="music-list">
         {displayedTracks.length === 0 && !loading && (
@@ -236,6 +196,9 @@ const Music = () => {
             <div className="track-meta">
               <span>{track.format.toUpperCase()}</span>
               <span>{formatSize(track.size)}</span>
+              {duration > 0 && currentTrack?.id === track.id && (
+                <span>{formatTime(duration)}</span>
+              )}
             </div>
             {(track.authorId === currentUserId || currentUser?.role === 'admin' || currentUser?.role === 'owner') && (
               <button 

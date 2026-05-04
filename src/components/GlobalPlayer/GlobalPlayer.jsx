@@ -16,8 +16,6 @@ const GlobalPlayer = () => {
   const [showVolume, setShowVolume] = useState(false);
   const progressRef = useRef(null);
 
-  if (!currentTrack) return null;
-
   const handleProgressClick = (e) => {
     if (!progressRef.current || !duration) return;
     const rect = progressRef.current.getBoundingClientRect();
@@ -25,25 +23,10 @@ const GlobalPlayer = () => {
     seekTo(percent * duration);
   };
 
-  const handleKeyDown = (e) => {
-    if (e.key === ' ') {
-      e.preventDefault();
-      togglePlay();
-    }
-  };
-
-  useEffect(() => {
-    const handleKey = (e) => {
-      if (e.key === 'Escape' && expanded) {
-        setExpanded(false);
-      }
-    };
-    window.addEventListener('keydown', handleKey);
-    return () => window.removeEventListener('keydown', handleKey);
-  }, [expanded]);
+  if (!currentTrack) return null;
 
   return (
-    <div className={`global-player ${expanded ? 'expanded' : ''}`} onKeyDown={handleKeyDown} tabIndex={0}>
+    <div className={`global-player ${expanded ? 'expanded' : ''}`} tabIndex={0}>
       <div className="player-main" onClick={() => setExpanded(!expanded)}>
         <button className="player-play-btn" onClick={(e) => { e.stopPropagation(); togglePlay(); }}>
           {isPlaying ? '⏸' : '▶'}
@@ -59,7 +42,6 @@ const GlobalPlayer = () => {
 
         <div className="player-progress" ref={progressRef} onClick={handleProgressClick}>
           <div className="progress-bar" style={{ width: duration ? `${(currentTime / duration) * 100}%` : '0%' }} />
-          <div className="progress-thumb" style={{ left: duration ? `${(currentTime / duration) * 100}%` : '0%' }} />
         </div>
 
         <span className="player-time">{formatTime(currentTime)} / {formatTime(duration)}</span>
