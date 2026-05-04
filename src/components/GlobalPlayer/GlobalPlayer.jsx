@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
 import { useMusic } from '../../context/MusicContext';
-import { getServerUrl } from '../../config';
 import VerifyBadge from '../VerifyBadge/VerifyBadge';
 import './GlobalPlayer.css';
 
@@ -78,7 +77,7 @@ const GlobalPlayer = () => {
           <div className="expanded-info">
             <div className="expanded-cover">
               {currentTrack.cover ? (
-                <img src={`${getServerUrl()}${currentTrack.cover}`} alt="" />
+                <img src={`${localStorage.getItem('ilnaz-server-url') || 'https://ilnaz-launcher.onrender.com'}${currentTrack.cover}`} alt="" />
               ) : (
                 <span className="music-icon">🎵</span>
               )}

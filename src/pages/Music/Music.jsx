@@ -1,5 +1,4 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { getServerUrl } from '../../config';
 import { login, getActiveUser } from '../../utils/auth';
 import { useMusic } from '../../context/MusicContext';
 import VerifyBadge from '../../components/VerifyBadge/VerifyBadge';
@@ -48,11 +47,11 @@ const Music = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${getServerUrl()}/api/music`);
+      const res = await fetch(`${localStorage.getItem('ilnaz-server-url') || 'https://ilnaz-launcher.onrender.com'}/api/music`);
       const data = await res.json();
       setTracks(data.tracks || []);
       
-      const plRes = await fetch(`${getServerUrl()}/api/playlists`);
+      const plRes = await fetch(`${localStorage.getItem('ilnaz-server-url') || 'https://ilnaz-launcher.onrender.com'}/api/playlists`);
       const plData = await plRes.json();
       setPlaylists(plData.playlists || []);
     } catch (e) {
@@ -84,7 +83,7 @@ const Music = () => {
       const formData = new FormData();
       formData.append('file', file);
       
-      const res = await fetch(`${getServerUrl()}/api/music`, {
+      const res = await fetch(`${localStorage.getItem('ilnaz-server-url') || 'https://ilnaz-launcher.onrender.com'}/api/music`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${localStorage.getItem('ilnaz-token')}` },
         body: formData,
@@ -110,7 +109,7 @@ const Music = () => {
     const trackId = prompt('Введите ID трека для добавления (или выберите из списка)');
     if (!trackId) return;
     
-    fetch(`${getServerUrl()}/api/playlists/${playlistId}/add`, {
+    fetch(`${localStorage.getItem('ilnaz-server-url') || 'https://ilnaz-launcher.onrender.com'}/api/playlists/${playlistId}/add`, {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
@@ -134,8 +133,8 @@ const Music = () => {
       if (playlistData.cover) formData.append('cover', playlistData.cover);
       
       const url = playlistData.id 
-        ? `${getServerUrl()}/api/playlists/${playlistData.id}`
-        : `${getServerUrl()}/api/playlists`;
+        ? `${localStorage.getItem('ilnaz-server-url') || 'https://ilnaz-launcher.onrender.com'}/api/playlists/${playlistData.id}`
+        : `${localStorage.getItem('ilnaz-server-url') || 'https://ilnaz-launcher.onrender.com'}/api/playlists`;
       
       const method = playlistData.id ? 'PUT' : 'POST';
       
@@ -161,7 +160,7 @@ const Music = () => {
   const handleDeletePlaylist = async (playlistId) => {
     if (!confirm('Удалить этот плейлист?')) return;
     try {
-      const res = await fetch(`${getServerUrl()}/api/playlists/${playlistId}`, {
+      const res = await fetch(`${localStorage.getItem('ilnaz-server-url') || 'https://ilnaz-launcher.onrender.com'}/api/playlists/${playlistId}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${localStorage.getItem('ilnaz-token')}` }
       });
@@ -190,7 +189,7 @@ const Music = () => {
       formData.append('cover', file);
       
       try {
-        const res = await fetch(`${getServerUrl()}/api/music/${trackId}/cover`, {
+        const res = await fetch(`${localStorage.getItem('ilnaz-server-url') || 'https://ilnaz-launcher.onrender.com'}/api/music/${trackId}/cover`, {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${localStorage.getItem('ilnaz-token')}` },
           body: formData,
@@ -213,7 +212,7 @@ const Music = () => {
     if (!confirm('Удалить этот трек?')) return;
     try {
       const token = localStorage.getItem('ilnaz-token');
-      const res = await fetch(`${getServerUrl()}/api/music/${trackId}`, {
+      const res = await fetch(`${localStorage.getItem('ilnaz-server-url') || 'https://ilnaz-launcher.onrender.com'}/api/music/${trackId}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` },
       });
@@ -246,7 +245,7 @@ const Music = () => {
   const handleTrackEnded = useCallback(() => {
     // Update duration when track ends
     if (currentTrack && duration > 0) {
-      const serverUrl = getServerUrl();
+      const serverUrl = localStorage.getItem('ilnaz-server-url') || 'https://ilnaz-launcher.onrender.com';
       fetch(`${serverUrl}/api/music/${currentTrack.id}/duration`, {
         method: 'POST',
         headers: { 
@@ -388,7 +387,7 @@ const Music = () => {
                   <div key={pl.id} className="playlist-item">
                     <div className="playlist-cover">
                       {pl.cover ? (
-                        <img src={`${getServerUrl()}${pl.cover}`} alt="" />
+                        <img src={`${localStorage.getItem('ilnaz-server-url') || 'https://ilnaz-launcher.onrender.com'}${pl.cover}`} alt="" />
                       ) : (
                         <span>🎵</span>
                       )}
