@@ -1,5 +1,4 @@
 import { useState, useRef } from 'react';
-import { getServerUrl } from '../../config';
 import './PlaylistEditor.css';
 
 const PlaylistEditor = ({ playlist, onSave, onCancel, onDelete }) => {

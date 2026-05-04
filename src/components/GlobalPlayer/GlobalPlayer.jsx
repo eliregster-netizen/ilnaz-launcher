@@ -1,15 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { useMusic } from '../../context/MusicContext';
+import { getServerUrl } from '../../config';
 import VerifyBadge from '../VerifyBadge/VerifyBadge';
 import './GlobalPlayer.css';
-
-const getServerUrl = () => {
-  try {
-    const stored = localStorage.getItem('ilnaz-server-url');
-    if (stored) return stored;
-  } catch (e) {}
-  return 'https://ilnaz-launcher.onrender.com';
-};
 
 const formatTime = (seconds) => {
   if (!seconds || isNaN(seconds)) return '0:00';
