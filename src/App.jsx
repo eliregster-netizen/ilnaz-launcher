@@ -14,6 +14,8 @@ import SettingsPage from './pages/SettingsPage/SettingsPage';
 import ThemeManager from './pages/ThemeManager';
 import Music from './pages/Music/Music';
 import { SettingsProvider } from './context/SettingsContext';
+import { MusicProvider } from './context/MusicContext';
+import GlobalPlayer from './components/GlobalPlayer/GlobalPlayer';
 import {
   getActiveUser,
   getUserById,
@@ -128,7 +130,10 @@ const AppContent = () => {
 const App = () => (
   <SettingsProvider>
     <ThemeProvider>
-      <AppContent />
+      <MusicProvider>
+        <AppContent />
+        <GlobalPlayer />
+      </MusicProvider>
     </ThemeProvider>
   </SettingsProvider>
 );

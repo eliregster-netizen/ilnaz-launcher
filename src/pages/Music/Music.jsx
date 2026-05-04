@@ -1,20 +1,9 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { getServerUrl } from '../../config';
 import { login, getActiveUser } from '../../utils/auth';
+import { useMusic } from '../../context/MusicContext';
 import VerifyBadge from '../../components/VerifyBadge/VerifyBadge';
 import './Music.css';
-
-const FAVORITES_KEY = 'ilnaz-music-favorites';
-
-const getFavorites = () => {
-  try {
-    return JSON.parse(localStorage.getItem(FAVORITES_KEY)) || [];
-  } catch { return []; }
-};
-
-const saveFavorites = (favorites) => {
-  localStorage.setItem(FAVORITES_KEY, JSON.stringify(favorites));
-};
 
 const formatTime = (seconds) => {
   if (!seconds || isNaN(seconds)) return '0:00';
@@ -28,15 +17,25 @@ const Music = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [uploading, setUploading] = useState(false);
-  const [currentTrack, setCurrentTrack] = useState(null);
-  const [isPlaying, setIsPlaying] = useState(false);
   const [activeTab, setActiveTab] = useState('all');
-  const [volume, setVolume] = useState(1);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const [favorites, setFavorites] = useState(getFavorites);
   const fileInputRef = useRef(null);
-  const audioRef = useRef(null);
+  
+  const { 
+    currentTrack, 
+    isPlaying, 
+    volume,
+    currentTime,
+    duration,
+    favorites,
+    playTrack, 
+    togglePlay,
+    setVolumeLevel,
+    toggleFavorite,
+    isFavorite,
+    seekTo,
+    setDuration,
+  } = useMusic();
+  
   const currentUser = getActiveUser();
   const currentUserId = currentUser?.id;
 
@@ -55,14 +54,6 @@ const Music = () => {
   }, []);
 
   useEffect(() => { loadTracks(); }, [loadTracks]);
-
-  const toggleFavorite = (trackId) => {
-    const newFavorites = favorites.includes(trackId)
-      ? favorites.filter(id => id !== trackId)
-      : [...favorites, trackId];
-    setFavorites(newFavorites);
-    saveFavorites(newFavorites);
-  };
 
   const handleUpload = async (e) => {
     const file = e.target.files?.[0];
@@ -131,35 +122,17 @@ const Music = () => {
     return (bytes / (1024 * 1024)).toFixed(1) + ' МБ';
   };
 
-  const playTrack = (track) => {
+  const handlePlayTrack = (track) => {
     if (currentTrack?.id === track.id) {
-      if (isPlaying) {
-        audioRef.current?.pause();
-        setIsPlaying(false);
-      } else {
-        audioRef.current?.play();
-        setIsPlaying(true);
-      }
+      togglePlay();
     } else {
-      setCurrentTrack(track);
-      setIsPlaying(true);
-    }
-  };
-
-  const handleVolumeChange = (e) => {
-    const newVolume = parseFloat(e.target.value);
-    setVolume(newVolume);
-    if (audioRef.current) {
-      audioRef.current.volume = newVolume;
+      playTrack(track);
     }
   };
 
   const handleSeek = (e) => {
     const newTime = parseFloat(e.target.value);
-    setCurrentTime(newTime);
-    if (audioRef.current) {
-      audioRef.current.currentTime = newTime;
-    }
+    seekTo(newTime);
   };
 
   const displayedTracks = activeTab === 'favorites' 
@@ -168,15 +141,6 @@ const Music = () => {
 
   return (
     <div className="music-page">
-      <audio 
-        ref={audioRef} 
-        src={currentTrack ? `${getServerUrl()}${currentTrack.path}` : ''} 
-        onEnded={() => setIsPlaying(false)}
-        onTimeUpdate={() => setCurrentTime(audioRef.current?.currentTime || 0)}
-        onLoadedMetadata={() => setDuration(audioRef.current?.duration || 0)}
-        autoPlay 
-      />
-      
       <div className="music-header">
         <h1>Музыка</h1>
         <div className="music-actions">
@@ -192,7 +156,7 @@ const Music = () => {
 
       <div className="music-tabs">
         <button className={`music-tab ${activeTab === 'all' ? 'active' : ''}`} onClick={() => setActiveTab('all')}>
-          Все треки
+          Все треки ({tracks.length})
         </button>
         <button className={`music-tab ${activeTab === 'favorites' ? 'active' : ''}`} onClick={() => setActiveTab('favorites')}>
           ♥ Избранное {favorites.length > 0 && <span className="music-tab-count">{favorites.length}</span>}
@@ -211,13 +175,7 @@ const Music = () => {
             </span>
           </div>
           <div className="player-controls">
-            <button className="player-btn" onClick={() => {
-              if (audioRef.current) {
-                if (isPlaying) audioRef.current.pause();
-                else audioRef.current.play();
-                setIsPlaying(!isPlaying);
-              }
-            }}>
+            <button className="player-btn" onClick={togglePlay}>
               {isPlaying ? '⏸' : '▶'}
             </button>
             <span className="player-time">{formatTime(currentTime)}</span>
@@ -239,7 +197,7 @@ const Music = () => {
                 max="1" 
                 step="0.01"
                 value={volume}
-                onChange={handleVolumeChange}
+                onChange={(e) => setVolumeLevel(parseFloat(e.target.value))}
               />
             </div>
           </div>
@@ -256,7 +214,7 @@ const Music = () => {
           <div 
             key={track.id} 
             className={`music-track ${currentTrack?.id === track.id ? 'active' : ''}`}
-            onClick={() => playTrack(track)}
+            onClick={() => handlePlayTrack(track)}
           >
             <div className="track-play">
               {currentTrack?.id === track.id && isPlaying ? '⏸' : '▶'}
@@ -269,11 +227,11 @@ const Music = () => {
               </span>
             </div>
             <button 
-              className={`track-favorite ${favorites.includes(track.id) ? 'active' : ''}`}
+              className={`track-favorite ${isFavorite(track.id) ? 'active' : ''}`}
               onClick={(e) => { e.stopPropagation(); toggleFavorite(track.id); }}
-              title={favorites.includes(track.id) ? 'Убрать из избранного' : 'В избранное'}
+              title={isFavorite(track.id) ? 'Убрать из избранного' : 'В избранное'}
             >
-              {favorites.includes(track.id) ? '♥' : '♡'}
+              {isFavorite(track.id) ? '♥' : '♡'}
             </button>
             <div className="track-meta">
               <span>{track.format.toUpperCase()}</span>

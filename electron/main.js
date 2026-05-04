@@ -14,7 +14,7 @@ const INI_GAMES_PATH = path.join(app.getPath('userData'), 'games.json');
 const startTime = new Date();
 
 // Track current presence state
-let currentPresence = { status: 'online', details: 'В главном меню', playingGame: false };
+let currentPresence = { status: 'online', details: 'В главном меню', playingGame: false, playingMusic: false, musicTrack: null };
 let minecraftPlayInterval = null;
 
 function getGames() {
@@ -74,8 +74,8 @@ function initDiscordRPC() {
   });
 }
 
-function updatePresence(status, details, isPlayingGame = false) {
-  currentPresence = { status, details, playingGame: isPlayingGame };
+function updatePresence(status, details, isPlayingGame = false, isPlayingMusic = false, musicTrack = null) {
+  currentPresence = { status, details, playingGame: isPlayingGame, playingMusic: isPlayingMusic, musicTrack };
   if (!rpcClient || !rpcClient.user) return;
 
   if (isPlayingGame) {
@@ -98,6 +98,17 @@ function updatePresence(status, details, isPlayingGame = false) {
         { label: 'ILNAZ Launcher', url: 'https://ilnaz-launcher.onrender.com' }
       ],
     });
+  } else if (isPlayingMusic && musicTrack) {
+    rpcClient.setActivity({
+      details: musicTrack.name || 'Неизвестный трек',
+      state: `by ${musicTrack.author || 'Неизвестно'}`,
+      startTimestamp: startTime,
+      largeImageKey: 'music_note',
+      largeImageText: musicTrack.name || 'Музыка',
+      smallImageKey: 'ilnaz_logo',
+      smallImageText: 'ILNAZ GAMING LAUNCHER',
+      instance: false,
+    });
   } else {
     rpcClient.setActivity({
       details: details,
@@ -117,7 +128,20 @@ function updatePresence(status, details, isPlayingGame = false) {
 
 ipcMain.handle('set-discord-presence', (_event, status, details) => {
   if (mc.isMinecraftRunning()) return { success: false };
-  updatePresence(status, details, false);
+  updatePresence(status, details, false, false, null);
+  return { success: true };
+});
+
+ipcMain.handle('set-music-presence', (_event, trackInfo) => {
+  if (!trackInfo) {
+    updatePresence(currentPresence.status, currentPresence.details, false, false, null);
+    return { success: true };
+  }
+  const musicTrack = {
+    name: trackInfo.name || 'Неизвестный трек',
+    author: trackInfo.author || 'Неизвестно'
+  };
+  updatePresence(currentPresence.status, currentPresence.details, false, true, musicTrack);
   return { success: true };
 });
 

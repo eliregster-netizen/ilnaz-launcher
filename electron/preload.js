@@ -12,6 +12,7 @@ contextBridge.exposeInMainWorld('electron', {
   maximizeApp: () => ipcRenderer.invoke('maximize-app'),
   setAlwaysOnTop: (value) => ipcRenderer.invoke('set-always-on-top', value),
   setDiscordPresence: (status, details) => ipcRenderer.invoke('set-discord-presence', status, details),
+  setMusicPresence: (trackInfo) => ipcRenderer.invoke('set-music-presence', trackInfo),
   getMinecraftStatus: () => ipcRenderer.invoke('get-minecraft-status'),
   getMinecraftVersions: () => ipcRenderer.invoke('get-minecraft-versions'),
   fetchMinecraftVersions: () => ipcRenderer.invoke('fetch-minecraft-versions'),
