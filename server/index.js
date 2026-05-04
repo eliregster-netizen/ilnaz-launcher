@@ -819,8 +819,6 @@ app.delete('/api/themes/public/:themeId', authenticateToken, async (req, res) =>
     res.status(500).json({ error: err.message }); 
   }
 });
-  } catch (err) { res.status(500).json({ error: err.message }); }
-});
 
 const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => console.log(`ILNAZ GAMING SERVER running on port ${PORT}`));
