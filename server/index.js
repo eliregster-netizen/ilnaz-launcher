@@ -5,7 +5,7 @@ const cors = require('cors');
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { MongoClient } = require('mongodb');
+const { MongoClient, ObjectId } = require('mongodb');
 
 const app = express();
 const server = http.createServer(app);
@@ -780,7 +780,7 @@ app.post('/api/themes/download/:themeId', async (req, res) => {
     console.log('Download request for:', themeId);
     // Try to find by id or _id
     let theme = await publicThemes.findOne({ id: themeId });
-    if (!theme) theme = await publicThemes.findOne({ _id: new MongoClient.ObjectId(themeId) });
+    if (!theme) theme = await publicThemes.findOne({ _id: new ObjectId(themeId) });
     console.log('Found theme:', theme ? theme.name : 'null');
     if (!theme) return res.status(404).json({ error: 'Theme not found' });
     await publicThemes.updateOne({ id: theme.id }, { $inc: { downloads: 1 } });
@@ -812,7 +812,7 @@ app.delete('/api/themes/public/:themeId', authenticateToken, async (req, res) =>
     console.log('Delete request for:', themeId, 'userId:', req.userId);
     // Try to find by id or _id
     let theme = await publicThemes.findOne({ id: themeId });
-    if (!theme) theme = await publicThemes.findOne({ _id: new MongoClient.ObjectId(themeId) });
+    if (!theme) theme = await publicThemes.findOne({ _id: new ObjectId(themeId) });
     if (!theme) {
       // Check all themes to debug
       const allThemes = await publicThemes.find().limit(5).toArray();
