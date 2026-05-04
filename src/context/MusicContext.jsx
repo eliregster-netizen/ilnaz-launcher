@@ -86,6 +86,12 @@ export const MusicProvider = ({ children }) => {
     setIsPlaying(true);
     setCurrentTime(0);
     setDuration(0);
+    
+    // Update play count
+    fetch(`${serverUrl}/api/music/${currentTrack.id}/play`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${localStorage.getItem('ilnaz-token')}` }
+    }).catch(() => {});
   }, [currentTrack?.id]);
 
   // Play/Pause
@@ -111,7 +117,7 @@ export const MusicProvider = ({ children }) => {
     if (currentTrack && isPlaying) {
       window.electron?.setMusicPresence?.({
         name: currentTrack.originalName,
-        author: currentTrack.author
+        cover: currentTrack.cover ? `${getServerUrl()}${currentTrack.cover}` : null
       });
     } else if (!currentTrack) {
       window.electron?.setMusicPresence?.(null);

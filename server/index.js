@@ -881,6 +881,9 @@ app.post('/api/music', authenticateToken, upload.single('file'), async (req, res
       size: req.file.size,
       format: path.extname(req.file.originalname).slice(1).toLowerCase(),
       path: `/music/${req.file.filename}`,
+      cover: null,
+      duration: 0,
+      playCount: 0,
       created_at: new Date().toISOString(),
     };
     await music.insertOne(track);
@@ -889,19 +892,181 @@ app.post('/api/music', authenticateToken, upload.single('file'), async (req, res
 });
 
 app.delete('/api/music/:trackId', authenticateToken, async (req, res) => {
+  // ... existing code ...
+});
+
+// === PLAYLISTS API ===
+let playlists;
+app.post('/api/playlists', authenticateToken, upload.single('cover'), async (req, res) => {
   try {
-    const trackId = req.params.trackId;
+    const user = await getUser(req.userId);
+    const { name } = req.body;
+    if (!name) return res.status(400).json({ error: 'Name required' });
+    
+    const playlist = {
+      id: generateId(),
+      name,
+      author: user ? user.nickname : 'Аноним',
+      authorId: req.userId,
+      authorRole: user?.role || null,
+      cover: req.file ? `/uploads/covers/${req.file.filename}` : null,
+      tracks: [],
+      created_at: new Date().toISOString(),
+    };
+    await playlists.insertOne(playlist);
+    res.json({ success: true, playlist });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/playlists', async (_req, res) => {
+  try {
+    const all = await playlists.find().sort({ created_at: -1 }).toArray();
+    res.json({ playlists: all });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/playlists/:id', authenticateToken, async (req, res) => {
+  try {
+    let pl = await playlists.findOne({ id: req.params.id });
+    if (!pl) pl = await playlists.findOne({ _id: new ObjectId(req.params.id) });
+    if (!pl) return res.status(404).json({ error: 'Not found' });
+    res.json({ playlist: pl });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.put('/api/playlists/:id', authenticateToken, upload.single('cover'), async (req, res) => {
+  try {
+    let pl = await playlists.findOne({ id: req.params.id });
+    if (!pl) pl = await playlists.findOne({ _id: new ObjectId(req.params.id) });
+    if (!pl) return res.status(404).json({ error: 'Not found' });
+    
+    const user = await getUser(req.userId);
+    if (user.role !== 'admin' && user.role !== 'owner' && pl.authorId !== req.userId) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+    
+    const updates = {};
+    if (req.body.name) updates.name = req.body.name;
+    if (req.file) updates.cover = `/uploads/covers/${req.file.filename}`;
+    
+    await playlists.updateOne({ id: req.params.id }, { $set: updates });
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.delete('/api/playlists/:id', authenticateToken, async (req, res) => {
+  try {
+    let pl = await playlists.findOne({ id: req.params.id });
+    if (!pl) pl = await playlists.findOne({ _id: new ObjectId(req.params.id) });
+    if (!pl) return res.status(404).json({ error: 'Not found' });
+    
+    const user = await getUser(req.userId);
+    if (user.role !== 'admin' && user.role !== 'owner' && pl.authorId !== req.userId) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+    
+    // Delete cover file
+    if (pl.cover) {
+      const coverPath = path.join(__dirname, pl.cover);
+      if (fs.existsSync(coverPath)) fs.unlinkSync(coverPath);
+    }
+    
+    await playlists.deleteOne({ id: req.params.id });
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Add track to playlist
+app.post('/api/playlists/:id/add', authenticateToken, async (req, res) => {
+  try {
+    let pl = await playlists.findOne({ id: req.params.id });
+    if (!pl) pl = await playlists.findOne({ _id: new ObjectId(req.params.id) });
+    if (!pl) return res.status(404).json({ error: 'Not found' });
+    
+    const { trackId } = req.body;
+    if (!trackId) return res.status(400).json({ error: 'trackId required' });
+    
+    // Check if track exists
     let track = await music.findOne({ id: trackId });
     if (!track) track = await music.findOne({ _id: new ObjectId(trackId) });
     if (!track) return res.status(404).json({ error: 'Track not found' });
+    
+    // Add if not already in playlist
+    if (!pl.tracks.includes(trackId)) {
+      await playlists.updateOne({ id: req.params.id }, { $push: { tracks: trackId } });
+    }
+    
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Remove track from playlist
+app.delete('/api/playlists/:id/remove/:trackId', authenticateToken, async (req, res) => {
+  try {
+    let pl = await playlists.findOne({ id: req.params.id });
+    if (!pl) pl = await playlists.findOne({ _id: new ObjectId(req.params.id) });
+    if (!pl) return res.status(404).json({ error: 'Not found' });
+    
+    const user = await getUser(req.userId);
+    if (user.role !== 'admin' && user.role !== 'owner' && pl.authorId !== req.userId) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+    
+    await playlists.updateOne({ id: req.params.id }, { $pull: { tracks: req.params.trackId } });
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Upload track cover
+app.post('/api/music/:id/cover', authenticateToken, upload.single('cover'), async (req, res) => {
+  try {
+    let track = await music.findOne({ id: req.params.id });
+    if (!track) track = await music.findOne({ _id: new ObjectId(req.params.id) });
+    if (!track) return res.status(404).json({ error: 'Track not found' });
+
     const user = await getUser(req.userId);
     if (user.role !== 'admin' && user.role !== 'owner' && track.authorId !== req.userId) {
       return res.status(403).json({ error: 'Forbidden' });
     }
-    const filePath = path.join(MUSIC_DIR, track.filename);
-    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-    await music.deleteOne({ id: trackId });
+
+    const coverPath = req.file ? `/uploads/covers/${req.file.filename}` : null;
+    await music.updateOne({ id: req.params.id }, { $set: { cover: coverPath } });
+    res.json({ success: true, cover: coverPath });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Update track duration
+app.post('/api/music/:id/duration', authenticateToken, async (req, res) => {
+  try {
+    const { duration } = req.body;
+    await music.updateOne({ id: req.params.id }, { $set: { duration: parseFloat(duration) || 0 } });
     res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Increment play count
+app.post('/api/music/:id/play', authenticateToken, async (req, res) => {
+  try {
+    await music.updateOne({ id: req.params.id }, { $inc: { playCount: 1 } });
+    const track = await music.findOne({ id: req.params.id });
+    res.json({ success: true, playCount: track?.playCount || 0 });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Playlist play count (sum of track play counts)
+app.get('/api/playlists/:id/play-count', async (req, res) => {
+  try {
+    let pl = await playlists.findOne({ id: req.params.id });
+    if (!pl) pl = await playlists.findOne({ _id: new ObjectId(req.params.id) });
+    if (!pl) return res.status(404).json({ error: 'Not found' });
+
+    let totalPlays = 0;
+    for (const trackId of pl.tracks) {
+      const track = await music.findOne({ id: trackId });
+      if (track) totalPlays += (track.playCount || 0);
+    }
+
+    res.json({ playCount: totalPlays });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 

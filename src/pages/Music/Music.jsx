@@ -18,6 +18,9 @@ const Music = () => {
   const [error, setError] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [activeTab, setActiveTab] = useState('all');
+  const [playlists, setPlaylists] = useState([]);
+  const [showPlaylistModal, setShowPlaylistModal] = useState(false);
+  const [editingPlaylist, setEditingPlaylist] = useState(null);
   const fileInputRef = useRef(null);
   
   const { 
@@ -46,6 +49,10 @@ const Music = () => {
       const res = await fetch(`${getServerUrl()}/api/music`);
       const data = await res.json();
       setTracks(data.tracks || []);
+      
+      const plRes = await fetch(`${getServerUrl()}/api/playlists`);
+      const plData = await plRes.json();
+      setPlaylists(plData.playlists || []);
     } catch (e) {
       setError('Не удалось загрузить музыку. Сервер недоступен.');
     } finally {
@@ -96,6 +103,110 @@ const Music = () => {
     }
   };
 
+  const handleAddToPlaylist = (playlistId) => {
+    // Will open a modal to select track
+    const trackId = prompt('Введите ID трека для добавления (или выберите из списка)');
+    if (!trackId) return;
+    
+    fetch(`${getServerUrl()}/api/playlists/${playlistId}/add`, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('ilnaz-token')}`
+      },
+      body: JSON.stringify({ trackId })
+    }).then(res => res.json()).then(result => {
+      if (result.success) {
+        alert('Трек добавлен в плейлист!');
+        loadTracks();
+      } else {
+        throw new Error(result.error);
+      }
+    }).catch(e => alert('Ошибка: ' + e.message));
+  };
+
+  const handleSavePlaylist = async (playlistData) => {
+    try {
+      const formData = new FormData();
+      if (playlistData.name) formData.append('name', playlistData.name);
+      if (playlistData.cover) formData.append('cover', playlistData.cover);
+      
+      const url = playlistData.id 
+        ? `${getServerUrl()}/api/playlists/${playlistData.id}`
+        : `${getServerUrl()}/api/playlists`;
+      
+      const method = playlistData.id ? 'PUT' : 'POST';
+      
+      const res = await fetch(url, {
+        method,
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('ilnaz-token')}` },
+        body: formData
+      });
+      
+      const result = await res.json();
+      if (result.success) {
+        alert(playlistData.id ? 'Плейлист обновлён!' : 'Плейлист создан!');
+        setEditingPlaylist(null);
+        loadTracks(); // Reload playlists
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (e) {
+      alert('Ошибка: ' + e.message);
+    }
+  };
+
+  const handleDeletePlaylist = async (playlistId) => {
+    if (!confirm('Удалить этот плейлист?')) return;
+    try {
+      const res = await fetch(`${getServerUrl()}/api/playlists/${playlistId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('ilnaz-token')}` }
+      });
+      const result = await res.json();
+      if (result.success) {
+        alert('Плейлист удалён!');
+        setEditingPlaylist(null);
+        loadTracks();
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (e) {
+      alert('Ошибка: ' + e.message);
+    }
+  };
+
+  const handleUploadCover = async (trackId) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      
+      const formData = new FormData();
+      formData.append('cover', file);
+      
+      try {
+        const res = await fetch(`${getServerUrl()}/api/music/${trackId}/cover`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('ilnaz-token')}` },
+          body: formData,
+        });
+        const result = await res.json();
+        if (result.success) {
+          alert('Обложка обновлена!');
+          loadTracks();
+        } else {
+          throw new Error(result.error);
+        }
+      } catch (e) {
+        alert('Ошибка: ' + e.message);
+      }
+    };
+    input.click();
+  };
+
   const handleDelete = async (trackId) => {
     if (!confirm('Удалить этот трек?')) return;
     try {
@@ -130,6 +241,28 @@ const Music = () => {
     }
   };
 
+  const handleTrackEnded = useCallback(() => {
+    // Update duration when track ends
+    if (currentTrack && audioRef.current?.duration) {
+      const serverUrl = getServerUrl();
+      fetch(`${serverUrl}/api/music/${currentTrack.id}/duration`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('ilnaz-token')}`
+        },
+        body: JSON.stringify({ duration: audioRef.current.duration })
+      }).catch(() => {});
+    }
+  }, [currentTrack]);
+
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    audio.addEventListener('ended', handleTrackEnded);
+    return () => audio.removeEventListener('ended', handleTrackEnded);
+  }, [handleTrackEnded]);
+
   const handleSeek = (e) => {
     seekTo(parseFloat(e.target.value));
   };
@@ -159,6 +292,9 @@ const Music = () => {
         </button>
         <button className={`music-tab ${activeTab === 'favorites' ? 'active' : ''}`} onClick={() => setActiveTab('favorites')}>
           ♥ Избранное {favorites.length > 0 && <span className="music-tab-count">{favorites.length}</span>}
+        </button>
+        <button className={`music-tab ${activeTab === 'playlists' ? 'active' : ''}`} onClick={() => { setActiveTab('playlists'); setShowPlaylistModal(true); }}>
+          Плейлисты ({playlists.length})
         </button>
       </div>
 
@@ -196,22 +332,89 @@ const Music = () => {
             <div className="track-meta">
               <span>{track.format.toUpperCase()}</span>
               <span>{formatSize(track.size)}</span>
-              {duration > 0 && currentTrack?.id === track.id && (
-                <span>{formatTime(duration)}</span>
+              {track.duration > 0 && (
+                <span>{formatTime(track.duration)}</span>
+              )}
+              {track.playCount > 0 && (
+                <span title="Прослушиваний">{track.playCount} 🔊</span>
               )}
             </div>
             {(track.authorId === currentUserId || currentUser?.role === 'admin' || currentUser?.role === 'owner') && (
-              <button 
-                className="track-delete" 
-                onClick={(e) => { e.stopPropagation(); handleDelete(track.id); }}
-                title="Удалить"
-              >
-                ✕
-              </button>
+              <div className="track-actions">
+                <button 
+                  className="track-cover-btn" 
+                  onClick={(e) => { e.stopPropagation(); handleUploadCover(track.id); }}
+                  title="Загрузить обложку"
+                >
+                  🖼
+                </button>
+                <button 
+                  className="track-delete" 
+                  onClick={(e) => { e.stopPropagation(); handleDelete(track.id); }}
+                  title="Удалить"
+                >
+                  ✕
+                </button>
+              </div>
             )}
           </div>
         ))}
       </div>
+
+      {showPlaylistModal && (
+        <div className="playlist-modal" onClick={(e) => { if (e.target === e.currentTarget) setShowPlaylistModal(false); }}>
+          <div className="playlist-modal-content">
+            <div className="playlist-header">
+              <h2>{editingPlaylist ? 'Редактировать плейлист' : 'Мои плейлисты'}</h2>
+              <button className="modal-close" onClick={() => { setShowPlaylistModal(false); setEditingPlaylist(null); }}>✕</button>
+            </div>
+
+            {!editingPlaylist && (
+              <div className="playlist-create">
+                <button className="music-btn" onClick={() => setEditingPlaylist({})}>
+                  + Создать плейлист
+                </button>
+              </div>
+            )}
+
+            {editingPlaylist && (
+              <PlaylistEditor 
+                playlist={editingPlaylist}
+                onSave={handleSavePlaylist}
+                onCancel={() => setEditingPlaylist(null)}
+                onDelete={handleDeletePlaylist}
+              />
+            )}
+
+            {!editingPlaylist && (
+              <div className="playlist-list">
+                {playlists.length === 0 && <div className="music-empty">Нет плейлистов</div>}
+                {playlists.map(pl => (
+                  <div key={pl.id} className="playlist-item">
+                    <div className="playlist-cover">
+                      {pl.cover ? (
+                        <img src={`${getServerUrl()}${pl.cover}`} alt="" />
+                      ) : (
+                        <span>🎵</span>
+                      )}
+                    </div>
+                    <div className="playlist-info">
+                      <span className="playlist-name">{pl.name}</span>
+                      <span className="playlist-meta">
+                        {pl.tracks?.length || 0} треков
+                      </span>
+                    </div>
+                    <div className="playlist-actions">
+                      <button onClick={() => setEditingPlaylist(pl)}>✏️</button>
+                      <button onClick={() => handleAddToPlaylist(pl.id)}>➕</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

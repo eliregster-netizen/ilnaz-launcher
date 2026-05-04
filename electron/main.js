@@ -99,11 +99,11 @@ function updatePresence(status, details, isPlayingGame = false, isPlayingMusic =
       ],
     });
   } else if (isPlayingMusic && musicTrack) {
+    const trackUrl = musicTrack.cover || 'https://ilnaz-launcher.onrender.com/logo.png';
     rpcClient.setActivity({
       details: musicTrack.name || 'Неизвестный трек',
-      state: `by ${musicTrack.author || 'Неизвестно'}`,
       startTimestamp: startTime,
-      largeImageKey: 'music_note',
+      largeImageKey: trackUrl,
       largeImageText: musicTrack.name || 'Музыка',
       smallImageKey: 'ilnaz_logo',
       smallImageText: 'ILNAZ GAMING LAUNCHER',
