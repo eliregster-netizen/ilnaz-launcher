@@ -115,9 +115,12 @@ export const MusicProvider = ({ children }) => {
   // Discord RPC
   useEffect(() => {
     if (currentTrack && isPlaying) {
+      const coverUrl = currentTrack.cover 
+        ? `${localStorage.getItem('ilnaz-server-url') || 'https://ilnaz-launcher.onrender.com'}${currentTrack.cover}`
+        : null;
       window.electron?.setMusicPresence?.({
         name: currentTrack.originalName,
-        cover: currentTrack.cover ? `${getServerUrl()}${currentTrack.cover}` : null
+        cover: coverUrl
       });
     } else if (!currentTrack) {
       window.electron?.setMusicPresence?.(null);

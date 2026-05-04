@@ -58,6 +58,10 @@ async function connectDB() {
 function generateId() { return crypto.randomUUID().slice(0, 8); }
 
 async function getUser(id) {
+  if (!users) {
+    console.error('Database not connected yet!');
+    return null;
+  }
   const u = await users.findOne({ id });
   if (u) u.friends = u.friends || [];
   return u;
