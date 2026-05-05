@@ -47,27 +47,35 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 const MONGO_URI = process.env.MONGO_URI;
-if (!MONGO_URI) { console.error('MONGO_URI not set!'); process.exit(1); }
+if (!MONGO_URI) { console.error('MONGO_URI not set! Using fallback...'); }
 
 let db, users, friendRequests, conversations, conversationMembers, messages, publicThemes;
 
 async function connectDB() {
-  const client = new MongoClient(MONGO_URI);
-  await client.connect();
-  db = client.db('ilnaz');
-  users = db.collection('users');
-  friendRequests = db.collection('friend_requests');
-  conversations = db.collection('conversations');
-  conversationMembers = db.collection('conversation_members');
-  messages = db.collection('messages');
-  playlists = db.collection('playlists');
-  music = db.collection('music');
-  publicThemes = db.collection('public_themes');
-  
-  // Init GridFS
-  initGridFS(db);
-  
-  console.log('DB connected & GridFS initialized');
+  if (!MONGO_URI) {
+    console.error('MONGO_URI not set! Running without DB...');
+    return;
+  }
+  try {
+    const client = new MongoClient(MONGO_URI);
+    await client.connect();
+    db = client.db('ilnaz');
+    users = db.collection('users');
+    friendRequests = db.collection('friend_requests');
+    conversations = db.collection('conversations');
+    conversationMembers = db.collection('conversation_members');
+    messages = db.collection('messages');
+    playlists = db.collection('playlists');
+    music = db.collection('music');
+    publicThemes = db.collection('public_themes');
+    
+    // Init GridFS
+    initGridFS(db);
+    
+    console.log('DB connected & GridFS initialized');
+  } catch (err) {
+    console.error('DB connection failed:', err.message);
+  }
 }
 
 function generateId() { return crypto.randomUUID().slice(0, 8); }
@@ -83,6 +91,15 @@ async function getUser(id) {
 }
 
 connectDB().catch(e => console.error(e));
+
+function requireDB(req, res, next) {
+  if (!db) {
+    return res.status(503).json({ error: 'Database not connected' });
+  }
+  next();
+}
+
+app.use('/api', requireDB);
 
 app.post('/api/register', async (req, res) => {
   try {
