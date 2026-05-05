@@ -1,6 +1,7 @@
 {
   "build": {
-    "rootDirectory": "server"
+    "rootDirectory": "server",
+    "buildCommand": "npm install"
   },
   "deploy": {
     "startCommand": "node index.js",
