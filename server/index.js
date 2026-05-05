@@ -6,6 +6,7 @@ const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { MongoClient, ObjectId } = require('mongodb');
+const { GridFSBucket } = require('mongodb');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
@@ -14,7 +15,7 @@ const fs = require('fs');
 let gfsBucket;
 
 function initGridFS(db) {
-  gfsBucket = new MongoClient.GridFSBucket(db, { bucketName: 'uploads' });
+  gfsBucket = new GridFSBucket(db, { bucketName: 'uploads' });
 }
 
 // Multer config (memory storage for GridFS)
