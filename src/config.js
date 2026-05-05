@@ -1,4 +1,4 @@
-const DEFAULT_SERVER = 'https://igt.up.railway.app';
+const DEFAULT_SERVER = 'https://ilnaz-launcher.onrender.com';
 
 export function getServerUrl() {
   // Use Vite-injected env var if present (for Railway frontend)
