@@ -1186,4 +1186,14 @@ app.get('/api/playlists/:id/play-count', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// Serve static frontend files
+const DIST_DIR = path.join(__dirname, '../dist');
+if (fs.existsSync(DIST_DIR)) {
+  app.use(express.static(DIST_DIR));
+  // SPA fallback
+  app.get('*', (_req, res) => {
+    res.sendFile(path.join(DIST_DIR, 'index.html'));
+  });
+}
+
 server.listen(PORT, () => console.log(`ILNAZ GAMING SERVER running on port ${PORT}`));
