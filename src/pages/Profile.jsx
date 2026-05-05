@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
-import { updateUser, setStatus, isAdmin } from '../utils/auth';
+import { updateUser, setStatus, isAdmin, getActiveUser } from '../utils/auth';
+import { getApiUrl } from '../config';
 import VerifyBadge from '../components/VerifyBadge/VerifyBadge';
 import './Profile.css';
 
@@ -99,7 +100,7 @@ const Profile = ({ profile, onUpdate, onLogout }) => {
     try {
       await setStatus(newStatus);
       setShowStatusPicker(false);
-      const freshUser = await fetch(`${getServerUrl()}/api/users/${profile.id}`).then(r => r.json());
+      const freshUser = await fetch(`${getApiUrl()}/users/${profile.id}`).then(r => r.json());
       onUpdate(freshUser);
     } catch (err) {
       console.error('Status change error:', err);

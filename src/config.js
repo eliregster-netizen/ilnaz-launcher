@@ -1,13 +1,19 @@
-const DEFAULT_SERVER = 'https://ilnaz-launcher.onrender.com';
+const DEFAULT_SERVER = 'https://igt.up.railway.app';
 
 export function getServerUrl() {
   // Use Vite-injected env var if present (for Railway frontend)
-  if (typeof process !== 'undefined' && process.env.VITE_API_URL) {
-    return process.env.VITE_API_URL;
+  if (typeof import.meta !== 'undefined' && import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
   }
   try {
     const stored = localStorage.getItem('ilnaz-server-url');
-    if (stored) return stored;
+    // Check for non-empty string
+    if (stored && stored.trim()) {
+      if (!stored.startsWith('http')) {
+        return 'https://' + stored;
+      }
+      return stored;
+    }
   } catch (e) {}
   return DEFAULT_SERVER;
 }

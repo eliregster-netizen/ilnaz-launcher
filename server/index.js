@@ -10,6 +10,17 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
+// GridFS setup
+let gfsBucket;
+
+function initGridFS(db) {
+  gfsBucket = new MongoClient.GridFSBucket(db, { bucketName: 'uploads' });
+}
+
+// Multer config (memory storage for GridFS)
+const storage = multer.memoryStorage();
+const upload = multer({ storage, limits: { fileSize: 100 * 1024 * 1024 } });
+
 const app = express();
 const server = http.createServer(app);
 const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS
@@ -49,10 +60,14 @@ async function connectDB() {
   conversations = db.collection('conversations');
   conversationMembers = db.collection('conversation_members');
   messages = db.collection('messages');
-  publicThemes = db.collection('public_themes');
-  music = db.collection('music');
   playlists = db.collection('playlists');
-  console.log('MongoDB connected');
+  music = db.collection('music');
+  publicThemes = db.collection('public_themes');
+  
+  // Init GridFS
+  initGridFS(db);
+  
+  console.log('DB connected & GridFS initialized');
 }
 
 function generateId() { return crypto.randomUUID().slice(0, 8); }
@@ -850,39 +865,61 @@ app.delete('/api/themes/public/:themeId', authenticateToken, async (req, res) =>
 const PORT = process.env.PORT || 3001;
 
 // ============ MUSIC API ============
-const MUSIC_DIR = path.join(process.cwd(), 'music');
-if (!fs.existsSync(MUSIC_DIR)) fs.mkdirSync(MUSIC_DIR, { recursive: true });
 
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, MUSIC_DIR),
-  filename: (_req, file, cb) => {
-    const id = generateId();
-    const ext = path.extname(file.originalname);
-    cb(null, `${id}${ext}`);
-  }
-});
-const upload = multer({ storage, limits: { fileSize: 100 * 1024 * 1024 } }); // 100MB max
-
-app.use('/music', express.static(MUSIC_DIR));
-const UPLOADS_DIR = path.join(process.cwd(), 'uploads');
-if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
-app.use('/uploads', express.static(UPLOADS_DIR));
-
-// Serve default placeholders for missing files
-app.use(['/music/:filename', '/uploads/covers/:filename'], (req, res, next) => {
-  if (req.method !== 'GET') return next();
-  const filePath = path.join(req.path.includes('/music') ? MUSIC_DIR : UPLOADS_DIR, req.params.filename);
-  if (!fs.existsSync(filePath)) {
-    const isImage = req.path.includes('/covers');
-    const defaultFile = isImage 
-      ? path.join(__dirname, '../public/default-cover.jpg')
-      : path.join(__dirname, '../public/default-track.mp3');
-    if (fs.existsSync(defaultFile)) {
-      return res.sendFile(defaultFile);
+// Serve music files from GridFS
+app.get('/music/:filename', async (req, res) => {
+  try {
+    const filename = req.params.filename;
+    const filesCollection = db.collection('uploads.files');
+    const fileDoc = await filesCollection.findOne({ filename });
+    
+    if (!fileDoc) {
+      // Try default
+      const defaultFile = path.join(__dirname, '../public/default-track.mp3');
+      if (fs.existsSync(defaultFile)) {
+        return res.sendFile(defaultFile);
+      }
+      return res.status(404).json({ error: 'File not found' });
     }
+    
+    res.set('Content-Type', fileDoc.contentType || 'audio/mpeg');
+    res.set('Content-Length', fileDoc.length);
+    
+    const downloadStream = gfsBucket.openDownloadStreamByName(filename);
+    downloadStream.pipe(res);
+  } catch (err) {
+    console.error('[GridFS] Error serving music:', err);
+    res.status(500).json({ error: err.message });
   }
-  next();
 });
+
+// Serve cover images from GridFS
+app.get('/uploads/covers/:filename', async (req, res) => {
+  try {
+    const filename = req.params.filename;
+    const filesCollection = db.collection('uploads.files');
+    const fileDoc = await filesCollection.findOne({ filename });
+    
+    if (!fileDoc) {
+      const defaultFile = path.join(__dirname, '../public/default-cover.jpg');
+      if (fs.existsSync(defaultFile)) {
+        return res.sendFile(defaultFile);
+      }
+      return res.status(404).json({ error: 'File not found' });
+    }
+    
+    res.set('Content-Type', fileDoc.contentType || 'image/jpeg');
+    res.set('Content-Length', fileDoc.length);
+    
+    const downloadStream = gfsBucket.openDownloadStreamByName(filename);
+    downloadStream.pipe(res);
+  } catch (err) {
+    console.error('[GridFS] Error serving cover:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
 
 app.get('/api/music', async (_req, res) => {
   try {
@@ -895,24 +932,45 @@ app.post('/api/music', authenticateToken, upload.single('file'), async (req, res
   try {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
     const user = await getUser(req.userId);
+    
+    // Upload to GridFS
+    const filename = `${crypto.randomBytes(8).toString('hex')}${path.extname(req.file.originalname)}`;
+    const uploadStream = gfsBucket.openUploadStream(filename, {
+      contentType: req.file.mimetype,
+      metadata: { originalName: req.file.originalname, userId: req.userId }
+    });
+    
+    uploadStream.end(req.file.buffer);
+    
+    await new Promise((resolve, reject) => {
+      uploadStream.on('finish', resolve);
+      uploadStream.on('error', reject);
+    });
+    
     const track = {
       id: generateId(),
-      filename: req.file.filename,
+      filename: filename,
       originalName: req.file.originalname,
       author: user ? user.nickname : 'Аноним',
       authorId: req.userId,
       authorRole: user?.role || null,
       size: req.file.size,
       format: path.extname(req.file.originalname).slice(1).toLowerCase(),
-      path: `/music/${req.file.filename}`,
+      path: `/music/${filename}`,
       cover: null,
       duration: 0,
       playCount: 0,
       created_at: new Date().toISOString(),
     };
+    
     await music.insertOne(track);
+    await users.updateOne({ id: req.userId }, { $push: { uploadedTracks: track.id } });
+    
     res.json({ success: true, track });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) {
+    console.error('[Music Upload] Error:', err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.delete('/api/music/:trackId', authenticateToken, async (req, res) => {
@@ -1068,10 +1126,29 @@ app.post('/api/music/:id/cover', authenticateToken, upload.single('cover'), asyn
       return res.status(403).json({ error: 'Forbidden' });
     }
 
-    const coverPath = req.file ? `/uploads/covers/${req.file.filename}` : null;
+    if (!req.file) return res.status(400).json({ error: 'No cover uploaded' });
+
+    // Upload cover to GridFS
+    const coverFilename = `${crypto.randomBytes(8).toString('hex')}${path.extname(req.file.originalname)}`;
+    const uploadStream = gfsBucket.openUploadStream(coverFilename, {
+      contentType: req.file.mimetype,
+      metadata: { originalName: req.file.originalname, type: 'cover', trackId: req.params.id }
+    });
+    
+    uploadStream.end(req.file.buffer);
+    
+    await new Promise((resolve, reject) => {
+      uploadStream.on('finish', resolve);
+      uploadStream.on('error', reject);
+    });
+
+    const coverPath = `/uploads/covers/${coverFilename}`;
     await music.updateOne({ id: req.params.id }, { $set: { cover: coverPath } });
     res.json({ success: true, cover: coverPath });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) {
+    console.error('[Cover Upload] Error:', err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // Update track duration
