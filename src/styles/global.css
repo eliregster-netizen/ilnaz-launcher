@@ -57,13 +57,13 @@ body {
 }
 
 #root {
-  height: 100vh;
+  height: 100vh !important;
   width: 100vw;
   overflow: hidden;
 }
 
 .app-container {
-  height: 100vh;
+  height: 100vh !important;
   width: 100vw;
   display: flex;
   flex-direction: column;
@@ -181,7 +181,7 @@ body {
   position: relative;
   padding: 30px;
 }
-  height: 100vh;
+  height: 100vh !important;
   overflow-y: auto;
   margin-top: var(--titlebar-height, 40px);
   margin-left: 0;
@@ -285,7 +285,7 @@ body {
   background: var(--bg-primary);
   color: var(--text-primary);
   overflow: hidden;
-  height: 100vh;
+  height: 100vh !important;
   width: 100vw;
 }
 
@@ -297,7 +297,7 @@ body {
 .app-container {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  height: 100vh !important;
   position: relative;
   background: var(--bg-primary);
   overflow: hidden;

@@ -425,7 +425,7 @@ const Music = () => {
         <button className={`music-tab ${activeTab === 'favorites' ? 'active' : ''}`} onClick={() => setActiveTab('favorites')}>
           ♥ Избранное {favorites.length > 0 && <span className="music-tab-count">{favorites.length}</span>}
         </button>
-        <button className={`music-tab ${activeTab === 'playlists' ? 'active' : ''}`} onClick={() => { setActiveTab('playlists'); setShowPlaylistModal(true); }}>
+        <button className={`music-tab ${activeTab === 'playlists' ? 'active' : ''}`} onClick={() => { setActiveTab('playlists'); setShowPlaylistModal(true); }} style={{display: 'none'}}>
           📋 Плейлисты ({playlists.length})
         </button>
       </div>
