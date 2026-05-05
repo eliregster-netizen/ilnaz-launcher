@@ -1,9 +1,10 @@
 {
   "build": {
-    "buildCommand": "cd server && npm ci"
+    "rootDirectory": "server",
+    "buildCommand": "npm ci"
   },
   "deploy": {
-    "startCommand": "cd server && node index.js",
+    "startCommand": "node index.js",
     "healthcheckPath": "/api/music"
   }
 }
