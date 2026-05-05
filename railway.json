@@ -1,11 +1,9 @@
 {
   "build": {
-    "rootDirectory": "server",
-    "buildCommand": "npm ci --omit=dev"
+    "rootDirectory": "server"
   },
   "deploy": {
     "startCommand": "node index.js",
-    "healthcheckPath": "/api/health",
-    "restartPolicyType": "ON_FAILURE"
+    "healthcheckPath": "/api/health"
   }
 }
