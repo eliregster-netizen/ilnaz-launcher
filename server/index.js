@@ -1204,6 +1204,11 @@ app.get('/api/playlists/:id/play-count', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// Simple healthcheck (no DB needed)
+app.get('/api/health', (_req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
 // Serve static frontend files
 const DIST_DIR = path.join(__dirname, '../dist');
 if (fs.existsSync(DIST_DIR)) {

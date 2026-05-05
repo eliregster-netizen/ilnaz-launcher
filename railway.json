@@ -5,7 +5,7 @@
   },
   "deploy": {
     "startCommand": "node index.js",
-    "healthcheckPath": "/api/music",
+    "healthcheckPath": "/api/health",
     "restartPolicyType": "ON_FAILURE"
   }
 }
