@@ -8,10 +8,5 @@
     "startCommand": "node server/index.js",
     "healthcheckPath": "/api/music",
     "restartPolicyType": "ON_FAILURE"
-  },
-  "environments": {
-    "NODE_ENV": "production",
-    "PORT": "3001",
-    "MONGO_URI": "your_mongodb_atlas_uri_here"
   }
 }
