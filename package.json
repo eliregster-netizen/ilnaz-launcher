@@ -2,11 +2,11 @@
   "name": "ilnaz-gaming-launcher",
   "version": "0.1.0",
   "description": "ILNAZ GAMING LAUNCHER - A Steam-like launcher for Arch Linux",
-  "main": "server-index.js",
+  "main": "index.js",
   "scripts": {
-    "start": "node server-index.js",
+    "start": "node index.js",
     "dev": "concurrently \"vite\" \"electron .\"",
-    "dev:full": "concurrently \"vite\" \"electron .\" \"node server-index.js\"",
+    "dev:full": "concurrently \"vite\" \"electron .\" \"node index.js\"",
     "build": "vite build",
     "electron:dev": "wait-on http://localhost:5173 && electron .",
     "electron:build": "electron-builder"
