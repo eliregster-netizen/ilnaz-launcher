@@ -893,7 +893,7 @@ app.get('/music/:filename', async (req, res) => {
     
     if (!fileDoc) {
       // Try default
-      const defaultFile = path.join(__dirname, '../public/default-track.mp3');
+      const defaultFile = path.join(__dirname, 'public/default-track.mp3');
       if (fs.existsSync(defaultFile)) {
         return res.sendFile(defaultFile);
       }
@@ -919,7 +919,7 @@ app.get('/uploads/covers/:filename', async (req, res) => {
     const fileDoc = await filesCollection.findOne({ filename });
     
     if (!fileDoc) {
-      const defaultFile = path.join(__dirname, '../public/default-cover.jpg');
+      const defaultFile = path.join(__dirname, 'public/default-cover.jpg');
       if (fs.existsSync(defaultFile)) {
         return res.sendFile(defaultFile);
       }
@@ -1210,7 +1210,7 @@ app.get('/api/health', (_req, res) => {
 });
 
 // Serve static frontend files
-const DIST_DIR = path.join(__dirname, '../dist');
+const DIST_DIR = path.join(__dirname, "dist");
 if (fs.existsSync(DIST_DIR)) {
   app.use(express.static(DIST_DIR));
   // SPA fallback
