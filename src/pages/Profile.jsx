@@ -225,15 +225,15 @@ const Profile = ({ profile, onUpdate, onLogout }) => {
         <div className="bio-header">
           <h2 className="section-title">О себе</h2>
           <button
-            className="edit-btn"
+            className="edit-btn icon-only"
             onClick={() => editing ? handleSave() : setEditing(true)}
             disabled={saving}
+            title={saving ? 'Сохранение...' : editing ? 'Сохранить' : 'Редактировать'}
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
               <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
               <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
             </svg>
-            {saving ? 'Сохранение...' : editing ? 'Сохранить' : 'Редактировать'}
           </button>
         </div>
         {editing ? (
