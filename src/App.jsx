@@ -4,7 +4,6 @@ import { ThemeProvider, useTheme } from './context/ThemeContext';
 import Sidebar from './components/Sidebar/Sidebar';
 import Auth from './components/Auth/Auth';
 import Home from './pages/Home';
-import Library from './pages/Library';
 import Profile from './pages/Profile';
 import Friends from './pages/Friends';
 import Chat from './pages/Chat';
@@ -16,8 +15,8 @@ import Music from './pages/Music/Music';
 import { SettingsProvider } from './context/SettingsContext';
 import { MusicProvider } from './context/MusicContext';
 import GlobalPlayer from './components/GlobalPlayer/GlobalPlayer';
-import Browser from './components/Browser/Browser';
 import Catalog from './pages/Catalog/Catalog';
+import WebGames from './pages/WebGames/WebGames';
 import CatalogManager from './pages/CatalogManager';
 import { getActiveUser, logout, getUserById, setStatus } from './utils/auth';
 import './styles/global.css';
@@ -29,10 +28,8 @@ const UserProfileRoute = () => {
 
 const AppContent = () => {
   const [profile, setProfile] = useState(null);
-  const [browserOpen, setBrowserOpen] = useState(false);
   const location = useLocation();
   const isChatPage = location.pathname.startsWith('/chat');
-  const isLibraryPage = location.pathname.startsWith('/library');
   const isSettingsPage = location.pathname.startsWith('/settings');
   const isThemesPage = location.pathname.startsWith('/themes');
   const { activeTheme } = useTheme();
@@ -107,11 +104,10 @@ const AppContent = () => {
         </div>
       </div>
       <div className="app-body">
-        <Sidebar profile={profile} onBrowserOpen={() => setBrowserOpen(true)} />
-        <main className={`main-content ${(isChatPage || isLibraryPage || isSettingsPage || isThemesPage) ? 'no-padding' : ''}`}>
+        <Sidebar profile={profile} />
+        <main className={`main-content ${(isChatPage || isSettingsPage || isThemesPage) ? 'no-padding' : ''}`}>
           <Routes>
             <Route path="/" element={<Home profile={profile} />} />
-            <Route path="/library" element={<Library profile={profile} />} />
             <Route path="/profile" element={<Profile profile={profile} onUpdate={handleProfileUpdate} onLogout={handleLogout} />} />
             <Route path="/profile/:userId" element={<UserProfileRoute />} />
             <Route path="/friends" element={<Friends />} />
@@ -121,11 +117,11 @@ const AppContent = () => {
             <Route path="/music" element={<Music />} />
             <Route path="/catalog" element={<Catalog />} />
             <Route path="/catalog/manager" element={<CatalogManager />} />
+            <Route path="/webgames" element={<WebGames />} />
             <Route path="/settings" element={<SettingsPage />} />
           </Routes>
         </main>
       </div>
-      <Browser isOpen={browserOpen} onClose={() => setBrowserOpen(false)} />
     </div>
   );
 };

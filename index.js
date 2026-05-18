@@ -113,6 +113,94 @@ app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// Web games: fetch & cache zones.json
+const coverURL = 'https://cdn.jsdelivr.net/gh/freebuisness/covers@main';
+const htmlURL = 'https://cdn.jsdelivr.net/gh/freebuisness/html@main';
+const zonesURL = 'https://cdn.jsdelivr.net/gh/freebuisness/assets@main/zones.json';
+let zonesCache = null;
+let zonesCacheTime = 0;
+const CACHE_TTL = 5 * 60 * 1000; // 5 min
+
+function makeSlug(name) {
+  return name.replace(/ /g, '-').toLowerCase().replace(/[^a-z0-9-]/g, '').replace(/-+/g, '-');
+}
+
+async function getZones() {
+  if (zonesCache && Date.now() - zonesCacheTime < CACHE_TTL) return zonesCache;
+  const res = await fetch(zonesURL);
+  const data = await res.json();
+  // resolve placeholders in each entry
+  data.forEach(z => {
+    if (z.url) z.url = z.url.replace('{COVER_URL}', coverURL).replace('{HTML_URL}', htmlURL);
+    if (z.cover) z.cover = z.cover.replace('{COVER_URL}', coverURL).replace('{HTML_URL}', htmlURL);
+    z.slug = makeSlug(z.name);
+  });
+  zonesCache = data;
+  zonesCacheTime = Date.now();
+  return data;
+}
+
+app.get('/api/webgames', async (_req, res) => {
+  try {
+    const zones = await getZones();
+    res.json({ games: zones });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Serve web game via iframe wrapper
+app.get('/webgame/:slug', async (req, res) => {
+  try {
+    const zones = await getZones();
+    const game = zones.find(z => z.slug === req.params.slug);
+    if (!game) return res.status(404).send('Game not found');
+    if (game.url && !game.url.includes(htmlURL)) {
+      // external link like Discord — redirect
+      return res.redirect(301, game.url);
+    }
+    const html = `<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${game.name} — ILNAZ GAMING LAUNCHER</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #000; overflow: hidden; height: 100vh; }
+    .webgame-toolbar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 6px 16px; background: #111; border-bottom: 1px solid #333;
+      font-family: sans-serif; font-size: 13px; color: #aaa; height: 40px;
+    }
+    .webgame-toolbar a { color: #7b2ff7; text-decoration: none; }
+    .webgame-toolbar a:hover { text-decoration: underline; }
+    .webgame-toolbar .close-btn {
+      background: none; border: none; color: #aaa; cursor: pointer;
+      font-size: 20px; padding: 0 8px;
+    }
+    .webgame-toolbar .close-btn:hover { color: #ff4466; }
+    iframe {
+      width: 100%; height: calc(100vh - 40px); border: none;
+      background: #000;
+    }
+  </style>
+</head>
+<body>
+  <div class="webgame-toolbar">
+    <span>${game.name}</span>
+    <a href="/" target="_blank">ILNAZ GAMING LAUNCHER</a>
+    <button class="close-btn" onclick="window.close()">×</button>
+  </div>
+  <iframe src="${game.url}" allowfullscreen allow="autoplay; fullscreen"></iframe>
+</body>
+</html>`;
+    res.send(html);
+  } catch (err) {
+    res.status(500).send('Error loading game: ' + err.message);
+  }
+});
+
 // DB-dependent API
 app.use('/api', requireDB);
 

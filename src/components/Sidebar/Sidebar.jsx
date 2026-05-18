@@ -18,7 +18,7 @@ const statusColors = {
   offline: '#888888',
 };
 
-const Sidebar = ({ profile, onBrowserOpen }) => {
+const Sidebar = ({ profile }) => {
   const location = useLocation();
   const { sidebarLogoSrc, activeTheme } = useTheme();
 
@@ -27,14 +27,13 @@ const Sidebar = ({ profile, onBrowserOpen }) => {
   const navItems = [
     { path: '/', icon: 'home', label: 'Home' },
     { path: '/catalog', icon: 'catalog', label: 'Каталог' },
-    { path: '/library', icon: 'library', label: 'Библиотека' },
+    { path: '/webgames', icon: 'webgames', label: 'Веб-игры' },
     { path: '/friends', icon: 'friends', label: 'Друзья' },
     { path: '/chat', icon: 'chat', label: 'Чат' },
     { path: '/themes', icon: 'themes', label: 'Темы' },
     { path: '/music', icon: 'music', label: 'Музыка' },
     { path: '/settings', icon: 'settings', label: 'Настройки' },
     { path: '/profile', icon: 'profile', label: 'Профиль' },
-    { type: 'browser', icon: 'browser', label: 'Браузер' },
   ];
 
   const adminItems = (profile?.role === 'admin' || profile?.role === 'owner') ? [
@@ -48,15 +47,6 @@ const Sidebar = ({ profile, onBrowserOpen }) => {
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7" />
             <polyline points="9 22 9 12 15 12 15 22" />
-          </svg>
-        );
-      case 'library':
-        return (
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <rect x="3" y="3" width="7" height="7" />
-            <rect x="14" y="3" width="7" height="7" />
-            <rect x="14" y="14" width="7" height="7" />
-            <rect x="3" y="14" width="7" height="7" />
           </svg>
         );
       case 'friends':
@@ -119,12 +109,13 @@ const Sidebar = ({ profile, onBrowserOpen }) => {
             <circle cx="12" cy="7" r="4" />
           </svg>
         );
-      case 'browser':
+      case 'webgames':
         return (
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="12" cy="12" r="10" />
-            <line x1="2" y1="12" x2="22" y2="12" />
-            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+            <rect x="2" y="3" width="20" height="14" rx="2" />
+            <line x1="2" y1="20" x2="22" y2="20" />
+            <line x1="8" y1="17" x2="8" y2="20" />
+            <line x1="16" y1="17" x2="16" y2="20" />
           </svg>
         );
       default:
@@ -166,30 +157,16 @@ const Sidebar = ({ profile, onBrowserOpen }) => {
       </div>
 
       <nav className="sidebar-nav">
-        {navItems.map((item) => {
-          if (item.type === 'browser') {
-            return (
-              <button
-                key="browser"
-                className="nav-item"
-                onClick={onBrowserOpen}
-              >
-                {getIcon(item.icon)}
-                <span>{item.label}</span>
-              </button>
-            );
-          }
-          return (
-            <Link
-              key={item.path}
-              to={item.path}
-              className={`nav-item ${location.pathname === item.path ? 'active' : ''}`}
-            >
-              {getIcon(item.icon)}
-              <span>{item.label}</span>
-            </Link>
-          );
-        })}
+        {navItems.map((item) => (
+          <Link
+            key={item.path}
+            to={item.path}
+            className={`nav-item ${location.pathname === item.path ? 'active' : ''}`}
+          >
+            {getIcon(item.icon)}
+            <span>{item.label}</span>
+          </Link>
+        ))}
         {adminItems.length > 0 && (
           <>
             <div className="nav-divider" />
