@@ -129,15 +129,16 @@ async function getZones() {
   if (zonesCache && Date.now() - zonesCacheTime < CACHE_TTL) return zonesCache;
   const res = await fetch(zonesURL);
   const data = await res.json();
-  // resolve placeholders in each entry
-  data.forEach(z => {
-    if (z.url) z.url = z.url.replace('{COVER_URL}', coverURL).replace('{HTML_URL}', htmlURL);
-    if (z.cover) z.cover = z.cover.replace('{COVER_URL}', coverURL).replace('{HTML_URL}', htmlURL);
-    z.slug = makeSlug(z.name);
-  });
+  data.forEach(z => { z.slug = makeSlug(z.name); });
   zonesCache = data;
   zonesCacheTime = Date.now();
   return data;
+}
+
+function resolveGameURLs(game) {
+  if (game.url) game.url = game.url.replace('{COVER_URL}', coverURL).replace('{HTML_URL}', htmlURL);
+  if (game.cover) game.cover = game.cover.replace('{COVER_URL}', coverURL).replace('{HTML_URL}', htmlURL);
+  return game;
 }
 
 app.get('/api/webgames', async (_req, res) => {
@@ -155,8 +156,9 @@ app.get('/webgame/:slug', async (req, res) => {
     const zones = await getZones();
     const game = zones.find(z => z.slug === req.params.slug);
     if (!game) return res.status(404).send('Game not found');
-    if (game.url && !game.url.includes(htmlURL)) {
-      // external link like Discord — redirect
+    resolveGameURLs(game);
+    // external link like Discord — redirect
+    if (game.url && game.url.startsWith('http') && !game.url.includes(htmlURL)) {
       return res.redirect(301, game.url);
     }
     const html = `<!DOCTYPE html>

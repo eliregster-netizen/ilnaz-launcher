@@ -29,6 +29,7 @@ const UserProfileRoute = () => {
 const AppContent = () => {
   const [profile, setProfile] = useState(null);
   const location = useLocation();
+  const isElectron = !!window.electron && !window.__isBrowser;
   const isChatPage = location.pathname.startsWith('/chat');
   const isSettingsPage = location.pathname.startsWith('/settings');
   const isThemesPage = location.pathname.startsWith('/themes');
@@ -83,26 +84,28 @@ const AppContent = () => {
   }
 
   return (
-    <div className="app-container">
+    <div className={`app-container ${!isElectron ? 'is-browser' : ''}`}>
       <div className={`app-bg-layer ${isBgImage ? 'active-bg' : ''}`} style={isBgImage ? {} : {}}>
         {isBgImage && <img src={bg.value} alt="" className="bg-image" />}
       </div>
-      <div className="titlebar">
-        <div className="titlebar-drag">
-          <span className="titlebar-text">{title}</span>
+      {isElectron && (
+        <div className="titlebar">
+          <div className="titlebar-drag">
+            <span className="titlebar-text">{title}</span>
+          </div>
+          <div className="titlebar-controls">
+            <button className="titlebar-btn" onClick={() => window.electron?.minimizeApp?.()}>
+              <svg viewBox="0 0 12 12"><rect x="2" y="5" width="8" height="1" /></svg>
+            </button>
+            <button className="titlebar-btn" onClick={() => window.electron?.maximizeApp?.()}>
+              <svg viewBox="0 0 12 12"><rect x="2" y="2" width="8" height="8" fill="none" /></svg>
+            </button>
+            <button className="titlebar-btn titlebar-close" onClick={() => window.electron?.closeApp?.()}>
+              <svg viewBox="0 0 12 12"><path d="M2 2l8 8M10 2l-8 8" /></svg>
+            </button>
+          </div>
         </div>
-        <div className="titlebar-controls">
-          <button className="titlebar-btn" onClick={() => window.electron?.minimizeApp?.()}>
-            <svg viewBox="0 0 12 12"><rect x="2" y="5" width="8" height="1" /></svg>
-          </button>
-          <button className="titlebar-btn" onClick={() => window.electron?.maximizeApp?.()}>
-            <svg viewBox="0 0 12 12"><rect x="2" y="2" width="8" height="8" fill="none" /></svg>
-          </button>
-          <button className="titlebar-btn titlebar-close" onClick={() => window.electron?.closeApp?.()}>
-            <svg viewBox="0 0 12 12"><path d="M2 2l8 8M10 2l-8 8" /></svg>
-          </button>
-        </div>
-      </div>
+      )}
       <div className="app-body">
         <Sidebar profile={profile} />
         <main className={`main-content ${(isChatPage || isSettingsPage || isThemesPage) ? 'no-padding' : ''}`}>

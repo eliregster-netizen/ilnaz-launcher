@@ -10,6 +10,7 @@
     <script>
     // Browser stub for window.electron — allows the app to run in a browser
     // without crashing. Overridden by the real preload.js in Electron.
+    window.__isBrowser = !window.electron;
     if (!window.electron) {
       const UNAVAILABLE = { success: false, error: 'Доступно только в приложении' };
       const noop = () => {};
