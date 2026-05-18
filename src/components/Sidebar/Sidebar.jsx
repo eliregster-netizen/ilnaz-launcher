@@ -18,7 +18,7 @@ const statusColors = {
   offline: '#888888',
 };
 
-const Sidebar = ({ profile }) => {
+const Sidebar = ({ profile, isOpen, onToggle, onClose }) => {
   const location = useLocation();
   const { sidebarLogoSrc, activeTheme } = useTheme();
 
@@ -124,70 +124,80 @@ const Sidebar = ({ profile }) => {
   };
 
   return (
-    <aside className="sidebar glass">
-      <div className="sidebar-header">
-        <div className="sidebar-logo">
-          <img src={sidebarLogoSrc || logo} className="logo-icon" alt="Logo" />
-          <span className="logo-text">{launcherTitle}</span>
+    <>
+      <button className="hamburger" onClick={onToggle} aria-label="Меню">
+        <span className={`hamburger-line ${isOpen ? 'open' : ''}`} />
+        <span className={`hamburger-line ${isOpen ? 'open' : ''}`} />
+        <span className={`hamburger-line ${isOpen ? 'open' : ''}`} />
+      </button>
+      {isOpen && <div className="sidebar-overlay" onClick={onClose} />}
+      <aside className={`sidebar glass ${isOpen ? 'sidebar-open' : ''}`}>
+        <div className="sidebar-header">
+          <div className="sidebar-logo">
+            <img src={sidebarLogoSrc || logo} className="logo-icon" alt="Logo" />
+            <span className="logo-text">{launcherTitle}</span>
+          </div>
         </div>
-      </div>
 
-      <div className="sidebar-profile">
-        <Link to="/profile" className="profile-info">
-          <div className="profile-avatar">
-            {profile.avatar ? (
-              <img src={profile.avatar} alt={profile.nickname} />
-            ) : (
-              <div className="avatar-placeholder">
-                {profile.nickname?.charAt(0).toUpperCase() || '?'}
-              </div>
-            )}
-            <span className={`status-indicator ${profile.status}`} />
-          </div>
-          <div className="profile-details">
-            <span className="profile-nickname-row">
-              <span className="profile-nickname">{profile.nickname}</span>
-              <VerifyBadge role={profile.role} size="sm" />
-            </span>
-            <span className="profile-status-text" style={{ color: statusColors[profile.status] || statusColors.offline }}>
-              {statusLabels[profile.status] || 'Не в сети'}
-            </span>
-          </div>
-        </Link>
-      </div>
-
-      <nav className="sidebar-nav">
-        {navItems.map((item) => (
-          <Link
-            key={item.path}
-            to={item.path}
-            className={`nav-item ${location.pathname === item.path ? 'active' : ''}`}
-          >
-            {getIcon(item.icon)}
-            <span>{item.label}</span>
+        <div className="sidebar-profile">
+          <Link to="/profile" className="profile-info" onClick={onClose}>
+            <div className="profile-avatar">
+              {profile.avatar ? (
+                <img src={profile.avatar} alt={profile.nickname} />
+              ) : (
+                <div className="avatar-placeholder">
+                  {profile.nickname?.charAt(0).toUpperCase() || '?'}
+                </div>
+              )}
+              <span className={`status-indicator ${profile.status}`} />
+            </div>
+            <div className="profile-details">
+              <span className="profile-nickname-row">
+                <span className="profile-nickname">{profile.nickname}</span>
+                <VerifyBadge role={profile.role} size="sm" />
+              </span>
+              <span className="profile-status-text" style={{ color: statusColors[profile.status] || statusColors.offline }}>
+                {statusLabels[profile.status] || 'Не в сети'}
+              </span>
+            </div>
           </Link>
-        ))}
-        {adminItems.length > 0 && (
-          <>
-            <div className="nav-divider" />
-            {adminItems.map((item) => (
-              <Link
-                key={item.path}
-                to={item.path}
-                className={`nav-item admin-link ${location.pathname === item.path ? 'active' : ''}`}
-              >
-                {getIcon(item.icon)}
-                <span>{item.label}</span>
-              </Link>
-            ))}
-          </>
-        )}
-      </nav>
+        </div>
 
-      <div className="sidebar-footer">
-        <div className="version">v0.1.0 alpha</div>
-      </div>
-    </aside>
+        <nav className="sidebar-nav">
+          {navItems.map((item) => (
+            <Link
+              key={item.path}
+              to={item.path}
+              className={`nav-item ${location.pathname === item.path ? 'active' : ''}`}
+              onClick={onClose}
+            >
+              {getIcon(item.icon)}
+              <span>{item.label}</span>
+            </Link>
+          ))}
+          {adminItems.length > 0 && (
+            <>
+              <div className="nav-divider" />
+              {adminItems.map((item) => (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  className={`nav-item admin-link ${location.pathname === item.path ? 'active' : ''}`}
+                  onClick={onClose}
+                >
+                  {getIcon(item.icon)}
+                  <span>{item.label}</span>
+                </Link>
+              ))}
+            </>
+          )}
+        </nav>
+
+        <div className="sidebar-footer">
+          <div className="version">v0.1.0 alpha</div>
+        </div>
+      </aside>
+    </>
   );
 };
 

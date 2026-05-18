@@ -28,6 +28,7 @@ const UserProfileRoute = () => {
 
 const AppContent = () => {
   const [profile, setProfile] = useState(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
   const isElectron = !!window.electron && !window.__isBrowser;
   const isChatPage = location.pathname.startsWith('/chat');
@@ -107,8 +108,8 @@ const AppContent = () => {
         </div>
       )}
       <div className="app-body">
-        <Sidebar profile={profile} />
-        <main className={`main-content ${(isChatPage || isSettingsPage || isThemesPage) ? 'no-padding' : ''}`}>
+        <Sidebar profile={profile} isOpen={sidebarOpen} onToggle={() => setSidebarOpen(v => !v)} onClose={() => setSidebarOpen(false)} />
+        <main className={`main-content ${(isChatPage || isSettingsPage || isThemesPage) ? 'no-padding' : ''}`} onClick={() => setSidebarOpen(false)}>
           <Routes>
             <Route path="/" element={<Home profile={profile} />} />
             <Route path="/profile" element={<Profile profile={profile} onUpdate={handleProfileUpdate} onLogout={handleLogout} />} />

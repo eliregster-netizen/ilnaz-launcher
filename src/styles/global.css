@@ -243,20 +243,207 @@ body {
 
 /* Responsive */
 @media (max-width: 768px) {
+  :root {
+    --sidebar-width: 260px;
+  }
+
   .sidebar {
-    width: 70px;
+    position: fixed !important;
+    top: 0 !important;
+    left: -100%;
+    width: var(--sidebar-width) !important;
+    height: 100vh;
+    z-index: 200;
+    transition: left 0.3s ease;
+    border-right: 1px solid var(--glass-border);
   }
-  
-  .titlebar {
-    left: 70px;
+
+  .sidebar.sidebar-open {
+    left: 0;
   }
-  
-  .browser-btn {
-    width: 40px;
-    height: 40px;
+
+  .sidebar-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 199;
+  }
+
+  .hamburger {
+    display: flex !important;
+  }
+
+  .app-body {
+    flex-direction: column;
+  }
+
+  .main-content {
+    left: 0 !important;
+    width: 100%;
+    padding: 16px;
+  }
+
+  .is-browser .main-content {
+    top: 0;
+  }
+
+  .main-content::before {
+    left: 0 !important;
+    top: 0 !important;
+  }
+
+  /* Hero */
+  .hero-section {
+    padding: 24px 20px !important;
+  }
+
+  .hero-title {
+    font-size: 22px !important;
+  }
+
+  .hero-decoration {
+    display: none;
+  }
+
+  /* Stats */
+  .stats-section {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Grids */
+  .games-row,
+  .catalog-grid,
+  .webgames-grid {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)) !important;
+    gap: 10px !important;
+  }
+
+  /* Catalog */
+  .catalog-header h2 {
     font-size: 20px;
-    bottom: 80px;
-    left: 15px;
+  }
+
+  .catalog-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .os-filters {
+    flex-wrap: wrap;
+  }
+
+  /* Webgames */
+  .webgames-grid {
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)) !important;
+  }
+
+  .webgames-page {
+    padding: 16px !important;
+  }
+
+  /* Profile */
+  .profile-page {
+    padding: 16px !important;
+  }
+
+  .profile-header .profile-overlay {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 80px 16px 16px !important;
+  }
+
+  .stats-grid {
+    grid-template-columns: 1fr 1fr !important;
+  }
+
+  /* Friends */
+  .friends-page {
+    padding: 16px !important;
+  }
+
+  .friends-list {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Chat */
+  .chat-page {
+    padding: 0 !important;
+  }
+
+  /* Settings */
+  .settings-page {
+    padding: 16px !important;
+  }
+
+  .settings-section {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Theme manager */
+  .theme-manager-page {
+    padding: 16px !important;
+  }
+
+  .themes-grid {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)) !important;
+  }
+
+  /* Music */
+  .music-page {
+    padding: 0 !important;
+  }
+
+  .music-layout {
+    flex-direction: column;
+  }
+
+  .music-sidebar {
+    width: 100% !important;
+    max-height: 200px;
+  }
+
+  /* Admin */
+  .admin-page {
+    padding: 16px !important;
+  }
+
+  .admin-table {
+    font-size: 12px;
+  }
+
+  /* Auth */
+  .auth-container {
+    padding: 20px !important;
+  }
+
+  .auth-box {
+    width: 100%;
+    max-width: 360px;
+    padding: 24px 20px !important;
+  }
+
+  /* News */
+  .news-card-attachments {
+    flex-direction: column;
+  }
+
+  .news-attach-img {
+    max-width: 100% !important;
+    max-height: 150px;
+  }
+}
+
+/* Tablet */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .main-content {
+    left: var(--sidebar-width);
+    padding: 24px;
+  }
+
+  .catalog-grid,
+  .webgames-grid {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)) !important;
   }
 }
 
@@ -522,4 +709,68 @@ body {
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+}
+
+/* Hamburger menu */
+.hamburger {
+  display: none;
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  z-index: 300;
+  width: 40px;
+  height: 40px;
+  background: var(--glass-bg);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--glass-border);
+  border-radius: 10px;
+  cursor: pointer;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 0;
+  -webkit-app-region: no-drag;
+}
+
+.hamburger-line {
+  display: block;
+  width: 20px;
+  height: 2px;
+  background: var(--text-secondary);
+  border-radius: 2px;
+  transition: all 0.3s ease;
+}
+
+.hamburger-line.open:nth-child(1) {
+  transform: translateY(7px) rotate(45deg);
+}
+
+.hamburger-line.open:nth-child(2) {
+  opacity: 0;
+}
+
+.hamburger-line.open:nth-child(3) {
+  transform: translateY(-7px) rotate(-45deg);
+}
+
+.hamburger:hover {
+  background: var(--glass-bg-hover);
+}
+
+/* Touch-friendly overrides on mobile */
+@media (pointer: coarse) {
+  .nav-item,
+  .titlebar-btn,
+  .catalog-download-btn,
+  .os-filter-btn,
+  .edit-btn,
+  .news-btn,
+  button {
+    min-height: 44px;
+  }
+
+  input, textarea, select {
+    font-size: 16px !important;
+  }
 }
