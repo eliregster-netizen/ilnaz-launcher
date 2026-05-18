@@ -309,6 +309,17 @@
   margin-left: 2px;
 }
 
+.rate-error {
+  width: 100%;
+  padding: 8px 12px;
+  background: rgba(255, 68, 102, 0.1);
+  border: 1px solid rgba(255, 68, 102, 0.3);
+  border-radius: 8px;
+  color: var(--danger);
+  font-size: 13px;
+  text-align: center;
+}
+
 /* Comments */
 .game-comments {
   padding: 24px;

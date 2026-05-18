@@ -2,7 +2,6 @@
   display: flex;
   flex-direction: column;
   gap: 24px;
-  max-width: 900px;
 }
 
 .back-btn {
@@ -288,4 +287,82 @@
   color: var(--text-secondary);
   font-size: 14px;
   line-height: 1.6;
+}
+
+.profile-games {
+  padding: 24px;
+}
+
+.profile-games-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.profile-game-card {
+  text-decoration: none;
+  color: inherit;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  transition: all 0.3s ease;
+}
+
+.profile-game-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--glass-border-hover);
+  box-shadow: 0 8px 24px rgba(123, 47, 247, 0.15);
+}
+
+.profile-game-cover {
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: var(--bg-tertiary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+}
+
+.profile-game-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.profile-game-no-cover {
+  color: var(--text-muted);
+}
+
+.profile-game-info {
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.profile-game-title {
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.profile-game-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.profile-loading-games {
+  display: flex;
+  justify-content: center;
+  padding: 20px;
+}
+
+@media (max-width: 768px) {
+  .profile-games-grid {
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  }
 }

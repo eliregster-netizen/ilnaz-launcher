@@ -1753,6 +1753,92 @@ app.get('/api/hub/genres', async (_req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// Upload cover for hub game
+app.post('/api/hub/games/:id/upload-cover', authenticateToken, upload.single('cover'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+    const game = await hubGames.findOne({ id: req.params.id });
+    if (!game) return res.status(404).json({ error: 'Game not found' });
+    if (game.developerId !== req.userId) {
+      const user = await getUser(req.userId);
+      if (user.role !== 'admin' && user.role !== 'owner') return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    const ext = path.extname(req.file.originalname);
+    const filename = `hub_cover_${crypto.randomBytes(8).toString('hex')}${ext}`;
+    const uploadStream = gfsBucket.openUploadStream(filename, {
+      contentType: req.file.mimetype,
+      metadata: { originalName: req.file.originalname, type: 'hub_cover', gameId: req.params.id }
+    });
+    uploadStream.end(req.file.buffer);
+    await new Promise((resolve, reject) => {
+      uploadStream.on('finish', resolve);
+      uploadStream.on('error', reject);
+    });
+
+    const url = `/uploads/covers/${filename}`;
+    await hubGames.updateOne({ id: req.params.id }, { $set: { coverUrl: url, updatedAt: new Date().toISOString() } });
+    res.json({ success: true, coverUrl: url });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Upload screenshots for hub game
+app.post('/api/hub/games/:id/upload-screenshots', authenticateToken, upload.array('screenshots', 10), async (req, res) => {
+  try {
+    if (!req.files || req.files.length === 0) return res.status(400).json({ error: 'No files uploaded' });
+    const game = await hubGames.findOne({ id: req.params.id });
+    if (!game) return res.status(404).json({ error: 'Game not found' });
+    if (game.developerId !== req.userId) {
+      const user = await getUser(req.userId);
+      if (user.role !== 'admin' && user.role !== 'owner') return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    const urls = [];
+    for (const file of req.files) {
+      const ext = path.extname(file.originalname);
+      const filename = `hub_ss_${crypto.randomBytes(8).toString('hex')}${ext}`;
+      const uploadStream = gfsBucket.openUploadStream(filename, {
+        contentType: file.mimetype,
+        metadata: { originalName: file.originalname, type: 'hub_screenshot', gameId: req.params.id }
+      });
+      uploadStream.end(file.buffer);
+      await new Promise((resolve, reject) => {
+        uploadStream.on('finish', resolve);
+        uploadStream.on('error', reject);
+      });
+      urls.push(`/uploads/covers/${filename}`);
+    }
+
+    const existing = game.screenshots || [];
+    await hubGames.updateOne({ id: req.params.id }, { $set: { screenshots: [...existing, ...urls], updatedAt: new Date().toISOString() } });
+    res.json({ success: true, screenshots: urls });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Delete a screenshot
+app.delete('/api/hub/games/:id/screenshots', authenticateToken, async (req, res) => {
+  try {
+    const { url } = req.body;
+    if (!url) return res.status(400).json({ error: 'URL required' });
+    const game = await hubGames.findOne({ id: req.params.id });
+    if (!game) return res.status(404).json({ error: 'Game not found' });
+    if (game.developerId !== req.userId) {
+      const user = await getUser(req.userId);
+      if (user.role !== 'admin' && user.role !== 'owner') return res.status(403).json({ error: 'Forbidden' });
+    }
+    const screenshots = (game.screenshots || []).filter(s => s !== url);
+    await hubGames.updateOne({ id: req.params.id }, { $set: { screenshots, updatedAt: new Date().toISOString() } });
+    // Try to clean up GridFS file
+    try {
+      const filename = url.split('/').pop();
+      const filesCollection = db.collection('uploads.files');
+      const fileDoc = await filesCollection.findOne({ filename });
+      if (fileDoc) await gfsBucket.delete(fileDoc._id);
+    } catch (_) {}
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 // Serve static frontend files
 const DIST_DIR = path.join(__dirname, "dist");
 if (fs.existsSync(DIST_DIR)) {

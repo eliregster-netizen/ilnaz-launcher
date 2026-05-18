@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { fetchGame, incrementPlay, incrementDownload, rateGame, fetchComments, postComment, deleteComment, toggleLike, deleteGame } from '../../utils/hubApi';
 import { getActiveUser, isAdmin } from '../../utils/auth';
@@ -16,6 +16,8 @@ const GamePage = () => {
   const [likeCount, setLikeCount] = useState(0);
   const [commentText, setCommentText] = useState('');
   const [error, setError] = useState('');
+  const [rateError, setRateError] = useState('');
+  const viewCountedRef = useRef(false);
 
   const user = getActiveUser();
   const admin = isAdmin();
@@ -24,6 +26,13 @@ const GamePage = () => {
   useEffect(() => {
     loadGame();
   }, [slug]);
+
+  useEffect(() => {
+    if (game && !viewCountedRef.current) {
+      viewCountedRef.current = true;
+      incrementPlay(game.id).catch(() => {});
+    }
+  }, [game]);
 
   const loadGame = async () => {
     setLoading(true);
@@ -62,10 +71,13 @@ const GamePage = () => {
   const handleRate = async (rating) => {
     if (!user) return;
     if (game.developerId === user.id) return;
+    setRateError('');
     const data = await rateGame(game.id, rating);
     if (data.success) {
       setUserRating(rating);
       setGame(prev => ({ ...prev, avgRating: data.avgRating, ratingCount: data.ratingCount }));
+    } else {
+      setRateError(data.error || 'Ошибка при оценке');
     }
   };
 
@@ -240,6 +252,7 @@ const GamePage = () => {
               <span className="rating-count">({game.ratingCount})</span>
             </span>
           </div>
+          {rateError && <div className="rate-error">{rateError}</div>}
         </div>
       </div>
 

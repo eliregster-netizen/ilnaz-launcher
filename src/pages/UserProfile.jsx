@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { getUserById, sendFriendRequest, removeFriend, getActiveUser, isAdmin, cancelFriendRequest, getSentRequests } from '../utils/auth';
+import { fetchUserGames } from '../utils/hubApi';
 import { getApiUrl } from '../config';
 import VerifyBadge from '../components/VerifyBadge/VerifyBadge';
 import './UserProfile.css';
@@ -12,6 +13,8 @@ const UserProfile = () => {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [friendStatus, setFriendStatus] = useState(null);
+  const [games, setGames] = useState([]);
+  const [gamesLoading, setGamesLoading] = useState(false);
 
   const currentUser = getActiveUser();
 
@@ -60,12 +63,21 @@ const UserProfile = () => {
       } else {
         const userData = await res.json();
         setUser(userData);
+        loadGames();
       }
     } catch (err) {
       console.error('Error loading user:', err);
       setUser(null);
     }
     setLoading(false);
+  };
+
+  const loadGames = async () => {
+    if (!userId) return;
+    setGamesLoading(true);
+    const data = await fetchUserGames(userId);
+    if (Array.isArray(data)) setGames(data);
+    setGamesLoading(false);
   };
 
   const handleSendRequest = async () => {
@@ -206,6 +218,33 @@ const UserProfile = () => {
         <h2 className="section-title">О себе</h2>
         <p className="bio-text">{user.bio || 'Пусто'}</p>
       </div>
+
+      {games.length > 0 && (
+        <div className="profile-games glass fade-in fade-in-delay-3">
+          <h2 className="section-title">Игры ({games.length})</h2>
+          <div className="profile-games-grid">
+            {games.map(game => (
+              <Link to={`/hub/game/${game.slug}`} key={game.id} className="profile-game-card">
+                <div className="profile-game-cover">
+                  {game.coverUrl ? (
+                    <img src={game.coverUrl} alt={game.title} loading="lazy" />
+                  ) : (
+                    <div className="profile-game-no-cover">🎮</div>
+                  )}
+                </div>
+                <div className="profile-game-info">
+                  <span className="profile-game-title">{game.title}</span>
+                  <span className="profile-game-meta">⭐ {game.avgRating || '—'} · ▶ {game.playCount}</span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {gamesLoading && games.length === 0 && (
+        <div className="profile-loading-games"><div className="spinner" /></div>
+      )}
     </div>
   );
 };
