@@ -202,12 +202,12 @@ const getToken = () => localStorage.getItem('ilnaz-token');
   };
 
   const filteredThemes = themes.filter(t =>
-    t.name.toLowerCase().includes(search.toLowerCase()) ||
+    (t.name && t.name.toLowerCase().includes(search.toLowerCase())) ||
     (t.author && t.author.toLowerCase().includes(search.toLowerCase()))
   );
 
   const filteredPublic = publicThemes.filter(t =>
-    t.name.toLowerCase().includes(search.toLowerCase()) ||
+    (t.name && t.name.toLowerCase().includes(search.toLowerCase())) ||
     (t.author && t.author.toLowerCase().includes(search.toLowerCase()))
   );
 

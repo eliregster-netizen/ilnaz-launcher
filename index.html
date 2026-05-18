@@ -7,6 +7,82 @@
   </head>
   <body>
     <div id="root"></div>
+    <script>
+    // Browser stub for window.electron — allows the app to run in a browser
+    // without crashing. Overridden by the real preload.js in Electron.
+    if (!window.electron) {
+      const UNAVAILABLE = { success: false, error: 'Доступно только в приложении' };
+      const noop = () => {};
+      const notify = () => Promise.resolve(UNAVAILABLE);
+
+      window.electron = {
+        getGames: () => Promise.resolve([]),
+        importGame: notify,
+        removeGame: notify,
+        launchGame: notify,
+        selectGameFile: notify,
+        selectGameDesktop: notify,
+        closeApp: noop,
+        minimizeApp: noop,
+        maximizeApp: noop,
+        setAlwaysOnTop: noop,
+        setDiscordPresence: noop,
+        setMusicPresence: noop,
+        getMinecraftStatus: () => Promise.resolve(null),
+        getMinecraftVersions: () => Promise.resolve([]),
+        fetchMinecraftVersions: notify,
+        downloadMinecraft: notify,
+        cancelMinecraftDownload: noop,
+        launchMinecraft: notify,
+        saveMinecraftSettings: notify,
+        onMinecraftDownloadProgress: () => noop,
+        onMinecraftDownloadComplete: () => noop,
+        onMinecraftPlaytime: () => noop,
+        onMinecraftLaunched: () => noop,
+        onMinecraftExited: () => noop,
+        microsoftLogin: notify,
+        microsoftLogout: notify,
+        elybyLogin: notify,
+        offlineLogin: notify,
+        getMinecraftAccounts: () => Promise.resolve([]),
+        setMinecraftActiveAccount: notify,
+        removeMinecraftAccount: notify,
+        downloadJava8: notify,
+        isJava8Downloaded: () => Promise.resolve(false),
+        downloadJava17: notify,
+        isJava17Downloaded: () => Promise.resolve(false),
+        deleteMinecraftVersion: notify,
+        reinstallMinecraftVersion: notify,
+        isOptifineInstalled: () => Promise.resolve(false),
+        checkOptifineAvailable: () => Promise.resolve(false),
+        downloadOptifine: notify,
+        removeOptifine: notify,
+        onJava8DownloadProgress: () => noop,
+        getThemes: () => Promise.resolve([]),
+        getActiveTheme: () => Promise.resolve(null),
+        setActiveTheme: notify,
+        createTheme: notify,
+        updateTheme: notify,
+        deleteTheme: notify,
+        exportTheme: notify,
+        importThemeFile: notify,
+        selectThemeFile: () => Promise.resolve(null),
+        saveThemeFile: notify,
+        findWorkingProxy: notify,
+        setProxy: noop,
+        downloadCatalogGame: notify,
+        cancelCatalogDownload: noop,
+        onCatalogDownloadProgress: () => noop,
+        onCatalogDownloadComplete: () => noop,
+        onCatalogDownloadError: () => noop,
+        getCatalogJson: () => Promise.resolve(null),
+        saveCatalogJson: notify,
+        addCatalogGame: notify,
+        updateCatalogGame: notify,
+        deleteCatalogGame: notify,
+      };
+    }
+    </script>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

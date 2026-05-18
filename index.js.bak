@@ -1,0 +1,132 @@
+const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
+const cors = require('cors');
+const crypto = require('crypto');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const { MongoClient, ObjectId } = require('mongodb');
+const { GridFSBucket } = require('mongodb');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+
+// GridFS setup
+let gfsBucket;
+
+function initGridFS(db) {
+  gfsBucket = new GridFSBucket(db, { bucketName: 'uploads' });
+}
+
+// Multer config (memory storage for GridFS)
+const storage = multer.memoryStorage();
+const upload = multer({ storage, limits: { fileSize: 100 * 1024 * 1024 } });
+
+const app = express();
+const server = http.createServer(app);
+const PORT = process.env.PORT || 3000;
+const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
+  : ['http://localhost:5173', 'http://localhost:3000', 'http://127.0.0.1:3000'];
+
+const JWT_SECRET = process.env.JWT_SECRET || 'ilnaz-default-secret-change-in-production';
+
+const io = new Server(server, {
+  cors: { origin: ALLOWED_ORIGINS, credentials: true },
+  maxHttpBufferSize: 15 * 1024 * 1024, // 15MB для поддержки файлов до 10MB в base64
+});
+
+app.use(cors({ origin: ALLOWED_ORIGINS, credentials: true }));
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  res.removeHeader('X-Powered-By');
+  next();
+});
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
+
+const MONGO_URI = process.env.MONGO_URI;
+if (!MONGO_URI) { console.error('MONGO_URI not set! Using fallback...'); }
+
+let db, users, friendRequests, conversations, conversationMembers, messages, publicThemes;
+
+async function connectDB() {
+  if (!MONGO_URI) {
+    console.error('MONGO_URI not set! Running without DB...');
+    return;
+  }
+  try {
+    const client = new MongoClient(MONGO_URI);
+    await client.connect();
+    db = client.db('ilnaz');
+    users = db.collection('users');
+    friendRequests = db.collection('friend_requests');
+    conversations = db.collection('conversations');
+    conversationMembers = db.collection('conversation_members');
+    messages = db.collection('messages');
+    playlists = db.collection('playlists');
+    music = db.collection('music');
+    publicThemes = db.collection('public_themes');
+    
+    // Init GridFS
+    initGridFS(db);
+    
+    console.log('DB connected & GridFS initialized');
+  } catch (err) {
+    console.error('DB connection failed:', err.message);
+  }
+}
+
+function generateId() { return crypto.randomUUID().slice(0, 8); }
+
+async function getUser(id) {
+  if (!users) {
+    console.error('Database not connected yet!');
+    return null;
+  }
+  const u = await users.findOne({ id });
+  if (u) u.friends = u.friends || [];
+  return u;
+}
+
+connectDB().catch(e => console.error(e));
+
+function requireDB(req, res, next) {
+  if (!db) {
+    return res.status(503).json({ error: 'Database not connected' });
+  }
+  next();
+}
+
+// === Public API (no DB required) ===
+const { parseSteamCatalog } = require('./server/parse-catalog');
+app.get('/api/catalog', async (_req, res) => {
+  try {
+    const catalog = await parseSteamCatalog();
+    res.json({ games: catalog });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/health', (_req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// === DB-dependent API ===
+app.use('/api', requireDB);
+
+// Serve static frontend files
+const DIST_DIR = path.join(__dirname, "dist");
+if (fs.existsSync(DIST_DIR)) {
+  app.use(express.static(DIST_DIR));
+  // SPA fallback
+  app.get('/{*splat}', (_req, res) => {
+    res.sendFile(path.join(DIST_DIR, 'index.html'));
+  });
+}
+
+server.listen(PORT, () => console.log(`ILNAZ GAMING SERVER running on port ${PORT}`));

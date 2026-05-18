@@ -81,6 +81,26 @@ export const ThemeProvider = ({ children }) => {
       document.title = theme.launcherTitle;
     }
 
+    // Font
+    if (theme.fontFamily) {
+      root.style.setProperty('--font-family', theme.fontFamily);
+    } else {
+      root.style.setProperty('--font-family', "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif");
+    }
+
+    // Custom CSS injection
+    let customStyle = document.getElementById('theme-custom-css');
+    if (theme.customCSS) {
+      if (!customStyle) {
+        customStyle = document.createElement('style');
+        customStyle.id = 'theme-custom-css';
+        document.head.appendChild(customStyle);
+      }
+      customStyle.textContent = theme.customCSS;
+    } else if (customStyle) {
+      customStyle.remove();
+    }
+
     // Icon
     if (theme.icon) {
       setSidebarLogoSrc(theme.icon);

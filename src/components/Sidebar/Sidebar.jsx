@@ -26,6 +26,7 @@ const Sidebar = ({ profile, onBrowserOpen }) => {
   
   const navItems = [
     { path: '/', icon: 'home', label: 'Home' },
+    { path: '/catalog', icon: 'catalog', label: 'Каталог' },
     { path: '/library', icon: 'library', label: 'Библиотека' },
     { path: '/friends', icon: 'friends', label: 'Друзья' },
     { path: '/chat', icon: 'chat', label: 'Чат' },
@@ -100,6 +101,15 @@ const Sidebar = ({ profile, onBrowserOpen }) => {
             <path d="M9 18V5l12-2v13" />
             <circle cx="6" cy="18" r="3" />
             <circle cx="18" cy="16" r="3" />
+          </svg>
+        );
+      case 'catalog':
+        return (
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <rect x="3" y="3" width="7" height="7" />
+            <rect x="14" y="3" width="7" height="7" />
+            <rect x="14" y="14" width="7" height="7" />
+            <rect x="3" y="14" width="7" height="7" />
           </svg>
         );
       case 'profile':

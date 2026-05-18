@@ -79,4 +79,28 @@ contextBridge.exposeInMainWorld('electron', {
   saveThemeFile: (themeData) => ipcRenderer.invoke('save-theme-file', themeData),
   findWorkingProxy: () => ipcRenderer.invoke('find-working-proxy'),
   setProxy: (proxyRules) => ipcRenderer.invoke('set-proxy', proxyRules),
+
+  // Game Catalog methods
+  downloadCatalogGame: (gameId, os) => ipcRenderer.invoke('download-catalog-game', { gameId, os }),
+  cancelCatalogDownload: (gameId) => ipcRenderer.send('cancel-catalog-download', { gameId }),
+  onCatalogDownloadProgress: (callback) => {
+    const handler = (_event, data) => callback(data);
+    ipcRenderer.on('catalog-download-progress', handler);
+    return () => ipcRenderer.removeListener('catalog-download-progress', handler);
+  },
+  onCatalogDownloadComplete: (callback) => {
+    const handler = (_event, data) => callback(data);
+    ipcRenderer.on('catalog-download-complete', handler);
+    return () => ipcRenderer.removeListener('catalog-download-complete', handler);
+  },
+   onCatalogDownloadError: (callback) => {
+    const handler = (_event, data) => callback(data);
+    ipcRenderer.on('catalog-download-error', handler);
+    return () => ipcRenderer.removeListener('catalog-download-error', handler);
+  },
+   getCatalogJson: () => ipcRenderer.invoke('get-catalog-json'),
+   saveCatalogJson: (data) => ipcRenderer.invoke('save-catalog-json', data),
+   addCatalogGame: (game) => ipcRenderer.invoke('add-catalog-game', game),
+   updateCatalogGame: (gameId, updates) => ipcRenderer.invoke('update-catalog-game', gameId, updates),
+   deleteCatalogGame: (gameId) => ipcRenderer.invoke('delete-catalog-game', gameId)
 });

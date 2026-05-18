@@ -372,6 +372,7 @@ const Library = () => {
             <button className={`filter-btn ${filter === 'desktop' ? 'active' : ''}`} onClick={() => setFilter('desktop')}>.desktop</button>
             <button className={`filter-btn ${filter === 'executable' ? 'active' : ''}`} onClick={() => setFilter('executable')}>Бинарники</button>
             <button className={`filter-btn ${filter === 'minecraft' ? 'active' : ''}`} onClick={() => setFilter('minecraft')}>Minecraft</button>
+            <button className={`filter-btn ${filter === 'catalog' ? 'active' : ''}`} onClick={() => setFilter('catalog')}>Каталог</button>
           </div>
         </div>
 

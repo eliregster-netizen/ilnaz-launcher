@@ -680,6 +680,7 @@ const Chat = () => {
               isInCall={callActive}
               callConversationId={callConversationId}
             />
+            
             <div className="messages-container">
               {messages.map(msg => (
                 <MessageBubble key={msg.id} message={msg} isOwn={msg.sender_id === user?.id} onImageClick={handleImageClick} />

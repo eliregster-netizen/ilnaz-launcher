@@ -17,13 +17,9 @@ import { SettingsProvider } from './context/SettingsContext';
 import { MusicProvider } from './context/MusicContext';
 import GlobalPlayer from './components/GlobalPlayer/GlobalPlayer';
 import Browser from './components/Browser/Browser';
-import {
-  getActiveUser,
-  getUserById,
-  isAdmin,
-  setStatus,
-  logout,
-} from './utils/auth';
+import Catalog from './pages/Catalog/Catalog';
+import CatalogManager from './pages/CatalogManager';
+import { getActiveUser, logout, getUserById, setStatus } from './utils/auth';
 import './styles/global.css';
 
 const UserProfileRoute = () => {
@@ -123,6 +119,8 @@ const AppContent = () => {
             <Route path="/admin" element={<Admin />} />
             <Route path="/themes" element={<ThemeManager />} />
             <Route path="/music" element={<Music />} />
+            <Route path="/catalog" element={<Catalog />} />
+            <Route path="/catalog/manager" element={<CatalogManager />} />
             <Route path="/settings" element={<SettingsPage />} />
           </Routes>
         </main>

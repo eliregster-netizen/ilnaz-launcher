@@ -1,0 +1,16 @@
+[
+  {
+    "id": "cs2",
+    "name": "Counter-Strike 2",
+    "description": "Тактический шутер от первого лица. Продолжение CS:GO.",
+    "cover": "https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/730/capsule_616x353.jpg?t=1749053861",
+    "sources": {
+      "windows": "https://store.steampowered.com/app/730/",
+      "linux": "https://store.steampowered.com/app/730/",
+      "macos": "#"
+    },
+    "size": 35000000000,
+    "genre": "FPS",
+    "developer": "Valve"
+  }
+]

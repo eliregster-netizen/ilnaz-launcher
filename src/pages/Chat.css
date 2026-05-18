@@ -1770,3 +1770,13 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+
+/* Hide old call UI */
+.call-overlay,
+.call-incoming-overlay,
+.call-active-panel,
+.call-ended-panel,
+.call-controls {
+  display: none !important;
+}

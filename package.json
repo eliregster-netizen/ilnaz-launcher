@@ -9,7 +9,7 @@
     "dev:full": "concurrently \"vite\" \"electron .\" \"node index.js\"",
     "build": "vite build",
     "electron:dev": "wait-on http://localhost:5173 && electron .",
-    "electron:build": "electron-builder"
+    "electron:build": "npm run build && electron-builder"
   },
   "keywords": [
     "gaming",

@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 
 const FAVORITES_KEY = 'ilnaz-music-favorites';
 
@@ -34,6 +34,8 @@ export const MusicProvider = ({ children }) => {
   const [favorites, setFavorites] = useState(getFavorites);
   const [currentPlaylist, setCurrentPlaylist] = useState(null); // Array of tracks or null
   const [currentTrackIndex, setCurrentTrackIndex] = useState(-1); // Index in currentPlaylist
+  
+  const isSeekingRef = useRef(false);
 
   // Сохраняем громкость
   useEffect(() => {
@@ -45,7 +47,14 @@ export const MusicProvider = ({ children }) => {
     const audio = getAudio();
     
     const handleEnded = () => setIsPlaying(false);
-    const handleTimeUpdate = () => setCurrentTime(audio.currentTime);
+    const handleTimeUpdate = () => {
+      if (isSeekingRef.current) {
+        // Ignore timeupdate during seek
+        isSeekingRef.current = false;
+        return;
+      }
+      setCurrentTime(audio.currentTime);
+    };
     const handleLoadedMetadata = () => setDuration(audio.duration || 0);
     const handlePlay = () => setIsPlaying(true);
     const handlePause = () => setIsPlaying(false);
@@ -141,7 +150,13 @@ const playTrack = useCallback((track, playlist = null, trackIndex = -1) => {
 
   const seekTo = useCallback((time) => {
     const audio = getAudio();
+    isSeekingRef.current = true;
     audio.currentTime = time;
+    setCurrentTime(time); // Force update React state immediately
+    // Allow timeupdate to fire once then reset flag
+    setTimeout(() => {
+      isSeekingRef.current = false;
+    }, 100);
   }, []);
 
   const setVolumeLevel = useCallback((level) => {

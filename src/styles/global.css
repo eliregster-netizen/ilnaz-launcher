@@ -47,10 +47,11 @@
   --text-muted: rgba(255, 255, 255, 0.4);
   --sidebar-width: 260px;
   --titlebar-height: 40px;
+  --font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
 body {
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-family: var(--font-family);
   background: var(--bg-primary);
   color: var(--text-primary);
   overflow: hidden;

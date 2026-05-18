@@ -26,7 +26,7 @@ const app = express();
 const server = http.createServer(app);
 const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
-  : ['http://localhost:5173', 'http://localhost:3000'];
+  : ['http://localhost:5173', 'http://localhost:3000', 'http://localhost:3001', 'http://127.0.0.1:3000', 'http://127.0.0.1:3001', 'http://ilnaz-launcher.run.place:3001', 'https://ilnaz-launcher.run.place'];
 
 const JWT_SECRET = process.env.JWT_SECRET || 'ilnaz-default-secret-change-in-production';
 
@@ -100,8 +100,23 @@ function requireDB(req, res, next) {
   next();
 }
 
+// Public API (no DB required)
+app.get('/api/catalog', async (_req, res) => {
+  try {
+    res.json({ games: [] });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/health', (_req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// DB-dependent API
 app.use('/api', requireDB);
 
+// Аутентификация
 app.post('/api/register', async (req, res) => {
   try {
     const ip = getClientIp(req);
@@ -1204,17 +1219,12 @@ app.get('/api/playlists/:id/play-count', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Simple healthcheck (no DB needed)
-app.get('/api/health', (_req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
-});
-
 // Serve static frontend files
 const DIST_DIR = path.join(__dirname, "dist");
 if (fs.existsSync(DIST_DIR)) {
   app.use(express.static(DIST_DIR));
   // SPA fallback
-  app.get('*', (_req, res) => {
+  app.get('/{*splat}', (_req, res) => {
     res.sendFile(path.join(DIST_DIR, 'index.html'));
   });
 }

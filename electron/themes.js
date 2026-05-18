@@ -41,6 +41,97 @@ const DEFAULT_THEME = {
   },
   icon: null,
   soundPath: DEFAULT_SOUND_PATH,
+  fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+};
+
+const TUI_CSS = `
+* { border-radius: 0 !important; }
+body { background: #000 !important; }
+
+.titlebar { background: #000 !important; border-bottom: 1px solid #1a1a1a !important; }
+.titlebar-btn { border: 1px solid transparent !important; background: transparent !important; color: #00ff00 !important; border-radius: 0 !important; }
+.titlebar-btn:hover { background: #1a1a1a !important; }
+.titlebar-btn.titlebar-close:hover { background: #003300 !important; color: #00ff00 !important; }
+.titlebar-text { color: #00ff00 !important; font-size: 12px !important; }
+
+.sidebar { background: #000 !important; border-right: 1px solid #1a1a1a !important; }
+.sidebar .nav-item { border-radius: 0 !important; background: transparent !important; border: none !important; color: #00ff00 !important; font-size: 13px !important; padding: 8px 16px !important; }
+.sidebar .nav-item:hover { background: #0a0a0a !important; }
+.sidebar .nav-item.active { background: #0a0a0a !important; border-left: 2px solid #00ff00 !important; }
+.sidebar .sidebar-logo img { display: none !important; }
+.sidebar .sidebar-logo { font-size: 11px !important; color: #00ff00 !important; text-transform: uppercase !important; letter-spacing: 1px !important; border-bottom: 1px solid #1a1a1a !important; padding-bottom: 8px !important; margin-bottom: 8px !important; }
+.sidebar .sidebar-profile img, .sidebar .profile-avatar { display: none !important; }
+.sidebar .sidebar-profile { border-bottom: 1px solid #1a1a1a !important; padding-bottom: 8px !important; margin-bottom: 8px !important; }
+
+.app-content { background: #000 !important; }
+
+.game-card, .catalog-card, [class*="game-card"], [class*="catalog-card"] { border-radius: 0 !important; background: #0a0a0a !important; border: 1px solid #1a1a1a !important; box-shadow: none !important; backdrop-filter: none !important; }
+.game-card:hover, .catalog-card:hover { border-color: #00ff00 !important; background: #0d0d0d !important; }
+
+button, .btn, [class*="btn"] { border-radius: 0 !important; background: #000 !important; border: 1px solid #333 !important; color: #00ff00 !important; box-shadow: none !important; text-shadow: none !important; backdrop-filter: none !important; font-family: inherit !important; }
+button:hover, .btn:hover { background: #1a1a1a !important; border-color: #00ff00 !important; }
+
+input, textarea, select, [class*="input"], [class*="field"] { border-radius: 0 !important; background: #000 !important; border: 1px solid #333 !important; color: #00ff00 !important; box-shadow: none !important; font-family: inherit !important; }
+input:focus, textarea:focus { border-color: #00ff00 !important; outline: none !important; }
+
+.glass, [class*="glass"] { background: #000 !important; border: 1px solid #1a1a1a !important; border-radius: 0 !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; box-shadow: none !important; }
+
+img:not([class*="os-icon"]):not([class*="os-logo"]), [class*="avatar"] { display: none !important; }
+
+h1, h2, h3, h4, h5, h6 { color: #00ff00 !important; font-weight: normal !important; font-family: inherit !important; }
+
+a { color: #00ff00 !important; text-decoration: none !important; }
+a:hover { text-decoration: underline !important; }
+
+::-webkit-scrollbar { width: 8px !important; background: #000 !important; }
+::-webkit-scrollbar-thumb { background: #333 !important; border-radius: 0 !important; }
+
+hr, [class*="divider"], [class*="separator"] { border-color: #1a1a1a !important; }
+
+table, th, td { border-color: #333 !important; }
+
+.catalog-page .catalog-header { border-bottom: 1px solid #1a1a1a !important; }
+.os-filter-btn { border-radius: 0 !important; background: #000 !important; border: 1px solid #333 !important; color: #00ff00 !important; }
+.os-filter-btn.active { background: #0a0a0a !important; border-color: #00ff00 !important; }
+
+.manage-btn { border: 1px solid #00ff00 !important; color: #00ff00 !important; }
+`;
+
+const TERMINAL_THEME = {
+  id: 'ilnaz-terminal',
+  name: 'ILNAZ TUI',
+  author: 'ILNAZ Launcher',
+  version: '1.0',
+  description: 'Настоящий TUI-стиль — зелёный текст на чёрном фоне, моноширинный шрифт, как в терминале',
+  isBuiltIn: true,
+  isDefault: false,
+  createdAt: new Date().toISOString(),
+  launcherTitle: '[ILNAZ_TUI]',
+  fontFamily: "'JetBrains Mono', 'Fira Code', 'Courier New', monospace",
+  customCSS: TUI_CSS,
+  colors: {
+    bgPrimary: '#000000',
+    bgSecondary: '#0a0a0a',
+    bgTertiary: '#141414',
+    accentPrimary: '#00ff00',
+    accentSecondary: '#33ff33',
+    textPrimary: '#00ff00',
+    textSecondary: 'rgba(0, 255, 0, 0.7)',
+    textMuted: 'rgba(0, 255, 0, 0.4)',
+    glassBg: '#000000',
+    glassBgHover: '#0a0a0a',
+    glassBorder: '#1a1a1a',
+    glassBorderHover: '#333333',
+    success: '#00ff00',
+    warning: '#ffaa00',
+    danger: '#ff3333',
+  },
+  background: {
+    type: 'css',
+    value: 'repeating-linear-gradient(0deg, rgba(0,255,0,0.03) 0px, rgba(0,255,0,0.03) 1px, transparent 1px, transparent 3px), radial-gradient(ellipse at 50% 50%, rgba(0,255,0,0.02) 0%, transparent 70%)',
+  },
+  icon: null,
+  soundPath: DEFAULT_SOUND_PATH,
 };
 
 function initThemes() {
@@ -58,22 +149,26 @@ function initThemes() {
     } catch (e) {}
   }
 
+  const BUILT_IN_THEMES = [DEFAULT_THEME, TERMINAL_THEME];
+
   if (!fs.existsSync(THEMES_INDEX_PATH)) {
     fs.writeJSONSync(THEMES_INDEX_PATH, {
       activeThemeId: DEFAULT_THEME_ID,
-      themes: [DEFAULT_THEME],
+      themes: [...BUILT_IN_THEMES],
     });
   } else {
     const index = fs.readJSONSync(THEMES_INDEX_PATH);
-    if (!index.themes.find(t => t.id === DEFAULT_THEME_ID)) {
-      index.themes.unshift(DEFAULT_THEME);
-      if (!index.activeThemeId) index.activeThemeId = DEFAULT_THEME_ID;
+    for (const builtIn of BUILT_IN_THEMES) {
+      const existing = index.themes.find(t => t.id === builtIn.id);
+      if (!existing) {
+        index.themes.unshift(builtIn);
+      } else {
+        // Update existing built-in theme with latest data
+        const merged = { ...builtIn, createdAt: existing.createdAt };
+        Object.assign(existing, merged);
+      }
     }
-    // Ensure default theme has soundPath
-    const defaultTheme = index.themes.find(t => t.id === DEFAULT_THEME_ID);
-    if (defaultTheme && (!defaultTheme.soundPath || defaultTheme.soundPath === null)) {
-      defaultTheme.soundPath = DEFAULT_SOUND_PATH;
-    }
+    if (!index.activeThemeId) index.activeThemeId = DEFAULT_THEME_ID;
     fs.writeJSONSync(THEMES_INDEX_PATH, index);
   }
 }
@@ -165,6 +260,8 @@ function createTheme(themeData) {
     isDefault: false,
     createdAt: new Date().toISOString(),
     launcherTitle: themeData.launcherTitle || 'ILNAZ GAMING LAUNCHER',
+    fontFamily: themeData.fontFamily || null,
+    customCSS: themeData.customCSS || null,
     colors: { ...DEFAULT_THEME.colors, ...(themeData.colors || {}) },
     background: { ...(themeData.background || { type: 'gradient', value: '' }) },
     icon: themeData.icon || null,
@@ -279,6 +376,8 @@ function exportTheme(themeId) {
     version: exportData.version,
     description: exportData.description,
     launcherTitle: exportData.launcherTitle,
+    fontFamily: exportData.fontFamily,
+    customCSS: exportData.customCSS,
     colors: exportData.colors,
     background: exportData.background,
     icon: exportData.icon,
@@ -307,6 +406,8 @@ async function importTheme(filePath) {
       version: themeData.version || '1.0',
       description: themeData.description || '',
       launcherTitle: themeData.launcherTitle || 'ILNAZ GAMING LAUNCHER',
+      fontFamily: themeData.fontFamily || null,
+      customCSS: themeData.customCSS || null,
       colors: themeData.colors,
       background: themeData.background || { type: 'gradient', value: '' },
       icon: themeData.icon || null,

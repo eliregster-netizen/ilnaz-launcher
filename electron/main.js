@@ -7,6 +7,7 @@ const mc = require('./minecraft');
 const themes = require('./themes');
 const https = require('https');
 const http = require('http');
+const gameCatalog = require('./game-catalog');
 
 let mainWindow;
 let rpcClient;
@@ -212,277 +213,441 @@ ipcMain.handle('launch-minecraft', async (_event, version, userId) => {
     return result;
   } catch (err) {
     console.error('[MC Launch Error]', err.message, err.stack);
-    return { success: false, error: err.message };
+  return { success: false, error: err.message };
   }
 });
 
-ipcMain.handle('save-minecraft-settings', (_event, settings) => {
-  mc.saveSettings(settings);
-  return { success: true };
+// ===== WINDOW CONTROL IPC HANDLERS =====
+ipcMain.handle('close-app', () => {
+  if (mainWindow) mainWindow.close();
 });
 
-ipcMain.handle('microsoft-login', async () => {
-  return mc.microsoftLogin(mainWindow);
+ipcMain.handle('minimize-app', () => {
+  if (mainWindow) mainWindow.minimize();
 });
 
-ipcMain.handle('microsoft-logout', async () => {
-  return mc.microsoftLogout();
-});
-
-ipcMain.handle('elyby-login', async (_event, username, password) => {
-  try {
-    return await mc.elybyLogin(username, password);
-  } catch (e) {
-    return { success: false, error: e.message };
-  }
-});
-
-ipcMain.handle('offline-login', (_event, username) => mc.offlineLogin(username));
-
-ipcMain.handle('download-java8', async (_event) => {
-  try {
-    await mc.downloadJava8((stage, downloaded, total) => {
-      if (mainWindow) mainWindow.webContents.send('java8-download-progress', { stage, downloaded, total });
-    });
-    return { success: true };
-  } catch (e) {
-    return { success: false, error: e.message };
-  }
-});
-
-ipcMain.handle('is-java8-downloaded', () => mc.isJava8Downloaded());
-
-ipcMain.handle('download-java17', async (_event) => {
-  try {
-    await mc.downloadJava17((stage, downloaded, total) => {
-      if (mainWindow) mainWindow.webContents.send('java8-download-progress', { stage, downloaded, total });
-    });
-    return { success: true };
-  } catch (e) {
-    return { success: false, error: e.message };
-  }
-});
-
-ipcMain.handle('is-java17-downloaded', () => mc.isJava17Downloaded());
-
-ipcMain.handle('delete-minecraft-version', (_event, version) => mc.deleteVersion(version));
-
-ipcMain.handle('reinstall-minecraft-version', async (_event, version) => {
-  let currentStageText = '';
-  const result = await mc.reinstallVersion(version, (stage, dl, total, currentIdx, totalItems) => {
-    currentStageText = mc.getStatus().stage;
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('minecraft-download-progress', {
-        stage, downloaded: dl, total, currentIdx, totalItems, stageText: currentStageText,
-      });
-    }
-  });
-  if (result.success && mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send('minecraft-download-complete', { success: true });
-  }
-  return result;
-});
-
-ipcMain.handle('is-optifine-installed', (_event, version) => mc.isOptifineInstalled(version));
-ipcMain.handle('check-optifine-available', async (_event, version) => mc.checkOptifineAvailable(version));
-ipcMain.handle('download-optifine', async (_event, version) => {
-  const result = await mc.downloadOptifine(version, (stage, dl, total) => {
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('minecraft-download-progress', {
-        stage: 'optifine', downloaded: dl, total,
-      });
-    }
-  });
-  return result;
-});
-ipcMain.handle('remove-optifine', (_event, version) => mc.removeOptifine(version));
-
-// Theme IPC handlers
-ipcMain.handle('get-themes', () => themes.getAllThemes());
-ipcMain.handle('get-active-theme', () => themes.getActiveTheme());
-ipcMain.handle('set-active-theme', (_event, themeId) => themes.setActiveTheme(themeId));
-ipcMain.handle('create-theme', (_event, themeData) => ({ success: true, theme: themes.createTheme(themeData) }));
-ipcMain.handle('update-theme', (_event, themeId, updates) => {
-  const result = themes.updateTheme(themeId, updates);
-  return result ? { success: true, theme: result } : { success: false, error: 'Theme not found' };
-});
-ipcMain.handle('delete-theme', (_event, themeId) => themes.deleteTheme(themeId));
-ipcMain.handle('export-theme', (_event, themeId) => {
-  const data = themes.exportTheme(themeId);
-  return data ? { success: true, data } : { success: false, error: 'Theme not found' };
-});
-ipcMain.handle('import-theme-file', async (_event, filePath) => themes.importTheme(filePath));
-ipcMain.handle('select-theme-file', async () => {
-  const result = await dialog.showOpenDialog(mainWindow, {
-    properties: ['openFile'],
-    filters: [{ name: 'ILNAZ Theme', extensions: ['ilnztheme'] }],
-  });
-  return result.canceled ? null : result.filePaths[0];
-});
-ipcMain.handle('save-theme-file', async (_event, themeData) => {
-  const result = await dialog.showSaveDialog(mainWindow, {
-    title: 'Сохранить тему',
-    defaultPath: `${themeData.name || 'my-theme'}.ilnztheme`,
-    filters: [{ name: 'ILNAZ Theme', extensions: ['ilnztheme'] }],
-  });
-  if (result.canceled || !result.filePath) return { success: false };
-  await fs.writeFile(result.filePath, JSON.stringify({
-    name: themeData.name,
-    author: themeData.author,
-    version: themeData.version,
-    description: themeData.description,
-    launcherTitle: themeData.launcherTitle,
-    colors: themeData.colors,
-    background: themeData.background,
-    icon: themeData.icon,
-  }, null, 2));
-  return { success: true, path: result.filePath };
-});
-
-ipcMain.handle('get-minecraft-accounts', () => mc.getAccounts());
-ipcMain.handle('set-minecraft-active-account', (_event, accountId) => {
-  mc.setActiveAccount(accountId);
-  mc.syncActiveAccountToAuth();
-  return { success: true };
-});
-ipcMain.handle('remove-minecraft-account', (_event, accountId) => {
-  mc.removeAccount(accountId);
-  mc.syncActiveAccountToAuth();
-  return { success: true };
-});
-
-// Game IPC
-ipcMain.handle('get-games', () => getGames());
-
-ipcMain.handle('import-game', async (_event, filePath, type) => {
-  const games = getGames();
-  let game;
-  if (type === 'desktop') {
-    game = await parseDesktopEntry(filePath);
-    game.filePath = filePath;
-  } else {
-    game = { name: path.basename(filePath), exec: filePath, filePath, icon: '', source: 'executable' };
-  }
-  game.id = Date.now().toString();
-  game.addedAt = new Date().toISOString();
-  games.push(game);
-  saveGames(games);
-  return game;
-});
-
-ipcMain.handle('remove-game', (_event, gameId) => {
-  const games = getGames().filter(g => g.id !== gameId);
-  saveGames(games);
-  return true;
-});
-
-ipcMain.handle('launch-game', async (_event, game) => {
-  return new Promise((resolve) => {
-    const child = spawn(game.exec, { shell: true, detached: true });
-    child.unref();
-    resolve({ success: true, pid: child.pid });
-  });
-});
-
-ipcMain.handle('select-game-file', async () => {
-  const result = await dialog.showOpenDialog(mainWindow, { properties: ['openFile'], filters: [{ name: 'Game Files', extensions: ['desktop', 'exe', 'sh'] }] });
-  return result.canceled ? null : result.filePaths[0];
-});
-
-ipcMain.handle('select-game-desktop', async () => {
-  const result = await dialog.showOpenDialog(mainWindow, { properties: ['openFile'], filters: [{ name: 'Desktop Entries', extensions: ['desktop'] }] });
-  return result.canceled ? null : result.filePaths[0];
-});
-
-// Window controls
-ipcMain.handle('close-app', () => app.quit());
-ipcMain.handle('minimize-app', () => mainWindow.minimize());
 ipcMain.handle('maximize-app', () => {
-  if (mainWindow.isMaximized()) mainWindow.unmaximize();
-  else mainWindow.maximize();
-});
-ipcMain.handle('set-always-on-top', (_event, value) => {
-  mainWindow.setAlwaysOnTop(value);
-  return { success: true };
-});
-
-// Proxy finder IPC
-ipcMain.handle('set-proxy', async (_event, proxyRules) => {
-  try {
-    const webContents = _event.sender;
-    await webContents.session.setProxy({ proxyRules, proxyBypassRules: '<local>' });
-    console.log('[Proxy] Set proxy:', proxyRules);
-    return { success: true };
-  } catch (err) {
-    console.error('[Proxy] Failed to set proxy:', err);
-    return { success: false, error: err.message };
+  if (mainWindow) {
+    if (mainWindow.isMaximized()) {
+      mainWindow.unmaximize();
+    } else {
+      mainWindow.maximize();
+    }
   }
 });
 
-ipcMain.handle('find-working-proxy', async () => {
-  try {
-    const proxyListUrl = 'https://raw.githubusercontent.com/proxifly/free-proxy-list/main/proxies/all/socks5.txt';
-    
-    // Fetch proxy list
-    const proxyList = await new Promise((resolve, reject) => {
-      https.get(proxyListUrl, (res) => {
-        let data = '';
-        res.on('data', chunk => data += chunk);
-        res.on('end', () => {
-          const proxies = data.split('\n')
-            .filter(line => line.trim())
-            .slice(0, 20) // Take first 20 for testing
-            .map(line => {
-              const match = line.match(/^(socks5|socks4|http|https):\/\/([^:]+):(\d+)$/);
-              if (match) {
-                return { protocol: match[1], host: match[2], port: parseInt(match[3], 10) };
-              }
-              return null;
-            })
-            .filter(Boolean);
-          resolve(proxies);
-        });
-      }).on('error', reject);
-    });
-
-    // Test proxies
-    for (const proxy of proxyList) {
-      const works = await new Promise((resolve) => {
-        const timeout = 5000;
-        const testUrl = 'http://www.google.com';
-        
-        const req = http.get({
-          host: proxy.host,
-          port: proxy.port,
-          path: testUrl,
-          timeout: timeout,
-          agent: false,
-        }, (res) => {
-          resolve(true);
-        });
-        
-        req.on('error', () => resolve(false));
-        req.on('timeout', () => {
-          req.destroy();
-          resolve(false);
-        });
+// ===== GAME CATALOG IPC HANDLERS =====
+// Загрузка игры из каталога
+ipcMain.handle('download-catalog-game', async (_event, { gameId, os }) => {
+  const progressCallback = (downloaded, total, stage) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('catalog-download-progress', {
+        gameId,
+        downloaded,
+        total,
+        percent: total > 0 ? (downloaded / total * 100) : 0,
+        stage
       });
-      
-      if (works) {
-        console.log('[ProxyFinder] Found working proxy:', proxy);
-        return { success: true, proxy: `${proxy.host}:${proxy.port}` };
+    }
+  };
+  
+  try {
+    // First, get the game data from catalog.json
+    const fs = require('fs-extra');
+    const path = require('path');
+    
+    let catalogPath;
+    if (app.isPackaged) {
+      catalogPath = path.join(app.getPath('userData'), 'catalog.json');
+      if (!await fs.pathExists(catalogPath)) {
+        catalogPath = path.join(process.resourcesPath, 'app.asar', 'dist', 'catalog.json');
       }
+      if (!await fs.pathExists(catalogPath)) {
+        catalogPath = path.join(process.resourcesPath, 'app', 'dist', 'catalog.json');
+      }
+    } else {
+      catalogPath = path.join(__dirname, '..', 'public', 'catalog.json');
     }
     
-    return { success: false, error: 'No working proxy found' };
+    console.log('[download-catalog-game] Reading catalog from:', catalogPath);
+    
+    if (!await fs.pathExists(catalogPath)) {
+      throw new Error(`Catalog file not found at ${catalogPath}`);
+    }
+    
+    const catalog = await fs.readJson(catalogPath);
+    const gameData = catalog.find(g => g.id === gameId);
+    
+    if (!gameData) {
+      throw new Error(`Game ${gameId} not found in catalog`);
+    }
+    
+    // Pass gameData to downloadGame
+    const result = await gameCatalog.downloadGame(gameData, os, progressCallback);
+    
+    if (result.success && mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('catalog-download-complete', { gameId });
+    }
+    return result;
   } catch (err) {
-    console.error('[ProxyFinder] Error:', err);
+    console.error('[download-catalog-game] Error:', err.message);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('catalog-download-error', { gameId, error: err.message });
+    }
+    throw err;
+  }
+});
+
+// Отмена загрузки (упрощённо)
+ipcMain.on('cancel-catalog-download', (_event, { gameId }) => {
+  console.log('Cancel download for game:', gameId);
+  // В реальной реализации нужно хранить активные загрузки и отменять их
+});
+
+// ===== MISSING HANDLERS =====
+
+// Загрузка списка игр из games.json
+ipcMain.handle('get-games', async () => {
+  const fs = require('fs-extra');
+  const path = require('path');
+  const gamesPath = path.join(app.getPath('userData'), 'games.json');
+  
+  try {
+    if (await fs.pathExists(gamesPath)) {
+      const content = await fs.readFile(gamesPath, 'utf8');
+      return JSON.parse(content);
+    }
+    return [];
+  } catch (err) {
+    console.error('[get-games] Error:', err.message);
+    return [];
+  }
+});
+
+// Проверка наличия Java 8 для Minecraft
+ipcMain.handle('is-java8-downloaded', async () => {
+  const fs = require('fs-extra');
+  const path = require('path');
+  
+  // Путь к Java 8 в директории Minecraft
+  const java8Path = path.join(app.getPath('userData'), '.minecraft', 'java8');
+  
+  try {
+    const exists = await fs.pathExists(java8Path);
+    return exists;
+  } catch (err) {
+    console.error('[is-java8-downloaded] Error:', err.message);
+    return false;
+  }
+});
+
+// ===== Theme IPC handlers =====
+ipcMain.handle('get-themes', async () => {
+  try {
+    return themes.getAllThemes();
+  } catch (err) {
+    console.error('[get-themes] Error:', err.message);
+    return [];
+  }
+});
+
+ipcMain.handle('get-active-theme', async () => {
+  try {
+    return themes.getActiveTheme();
+  } catch (err) {
+    console.error('[get-active-theme] Error:', err.message);
+    return themes.getThemeById(themes.DEFAULT_THEME_ID) || null;
+  }
+});
+
+ipcMain.handle('set-active-theme', async (_event, themeId) => {
+  try {
+    return themes.setActiveTheme(themeId);
+  } catch (err) {
     return { success: false, error: err.message };
   }
 });
 
-// App lifecycle
+ipcMain.handle('create-theme', async (_event, themeData) => {
+  try {
+    const theme = themes.createTheme(themeData);
+    return { success: true, theme };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('update-theme', async (_event, themeId, updates) => {
+  try {
+    const theme = themes.updateTheme(themeId, updates);
+    if (!theme) return { success: false, error: 'Тема не найдена' };
+    return { success: true, theme };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('delete-theme', async (_event, themeId) => {
+  try {
+    return themes.deleteTheme(themeId);
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('export-theme', async (_event, themeId) => {
+  try {
+    const data = themes.exportTheme(themeId);
+    if (!data) return { success: false, error: 'Тема не найдена' };
+    return { success: true, data };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('import-theme-file', async (_event, filePath) => {
+  try {
+    return await themes.importTheme(filePath);
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('select-theme-file', async () => {
+  try {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: 'Выберите файл темы',
+      filters: [
+        { name: 'Темы ILNAZ', extensions: ['ilnztheme'] },
+        { name: 'Все файлы', extensions: ['*'] }
+      ],
+      properties: ['openFile']
+    });
+    if (!result.canceled && result.filePaths.length > 0) {
+      return result.filePaths[0];
+    }
+    return null;
+  } catch (err) {
+    console.error('[select-theme-file] Error:', err.message);
+    return null;
+  }
+});
+
+ipcMain.handle('save-theme-file', async (_event, themeData) => {
+  try {
+    const result = await dialog.showSaveDialog(mainWindow, {
+      title: 'Сохранить тему',
+      defaultPath: `${themeData.name || 'theme'}.ilnztheme`,
+      filters: [
+        { name: 'Темы ILNAZ', extensions: ['ilnztheme'] },
+        { name: 'Все файлы', extensions: ['*'] }
+      ]
+    });
+    if (!result.canceled && result.filePath) {
+      await fs.writeJson(result.filePath, themeData, { spaces: 2 });
+      return { success: true };
+    }
+    return { success: false, error: 'Отменено пользователем' };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+// Проверка Java 17 (для новых версий Minecraft)
+ipcMain.handle('is-java17-downloaded', async () => {
+  const fs = require('fs-extra');
+  const path = require('path');
+  
+  const java17Path = path.join(app.getPath('userData'), '.minecraft', 'java17');
+  
+  try {
+    const exists = await fs.pathExists(java17Path);
+    return exists;
+  } catch (err) {
+    console.error('[is-java17-downloaded] Error:', err.message);
+    return false;
+  }
+});
+
+// Выбор игры через диалог (для импорта)
+ipcMain.handle('select-game-desktop', async () => {
+  const { dialog } = require('electron');
+  
+  try {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: 'Выберите исполняемый файл игры',
+      filters: [
+        { name: 'Executable', extensions: ['exe', 'AppImage', 'sh', 'bat', 'cmd'] },
+        { name: 'All Files', extensions: ['*'] }
+      ],
+      properties: ['openFile']
+    });
+    
+    if (!result.canceled && result.filePaths.length > 0) {
+      return { success: true, filePath: result.filePaths[0] };
+    }
+    return { success: false, canceled: true };
+  } catch (err) {
+    console.error('[select-game-desktop] Error:', err.message);
+    return { success: false, error: err.message };
+  }
+});
+
+// Установка прокси для запросов
+ipcMain.handle('set-proxy', async (_event, proxyUrl) => {
+  try {
+    if (mainWindow && mainWindow.webContents) {
+      await mainWindow.webContents.session.setProxy({
+        proxyRules: proxyUrl || '',
+      });
+      console.log('[set-proxy] Proxy set to:', proxyUrl || 'none');
+      return { success: true };
+    }
+    return { success: false, error: 'Window not available' };
+  } catch (err) {
+    console.error('[set-proxy] Error:', err.message);
+    return { success: false, error: err.message };
+  }
+});
+
+// Чтение catalog.json для Каталога
+ipcMain.handle('get-catalog-json', async () => {
+  const fs = require('fs-extra');
+  const path = require('path');
+  
+  let catalogPath;
+  
+  if (app.isPackaged) {
+    // In production, try userData first (where we save changes), then resources
+    catalogPath = path.join(app.getPath('userData'), 'catalog.json');
+    if (!await fs.pathExists(catalogPath)) {
+      catalogPath = path.join(process.resourcesPath, 'app.asar', 'dist', 'catalog.json');
+    }
+    if (!await fs.pathExists(catalogPath)) {
+      catalogPath = path.join(process.resourcesPath, 'app', 'dist', 'catalog.json');
+    }
+  } else {
+    // In development
+    catalogPath = path.join(__dirname, '..', 'public', 'catalog.json');
+  }
+  
+  try {
+    console.log('[get-catalog-json] Reading from:', catalogPath);
+    if (await fs.pathExists(catalogPath)) {
+      const data = await fs.readJson(catalogPath);
+      return { success: true, games: data };
+    }
+    return { success: false, error: 'catalog.json not found at ' + catalogPath };
+  } catch (err) {
+    console.error('[get-catalog-json] Error:', err.message);
+    return { success: false, error: err.message };
+  }
+});
+
+// ===== CATALOG MANAGEMENT (Owner/Admin only) =====
+ipcMain.handle('save-catalog-json', async (_event, catalogData) => {
+  const fs = require('fs-extra');
+  const path = require('path');
+  
+  // In production, save to userData directory
+  const catalogPath = app.isPackaged 
+    ? path.join(app.getPath('userData'), 'catalog.json')
+    : path.join(__dirname, '..', 'public', 'catalog.json');
+  
+  try {
+    await fs.writeJson(catalogPath, catalogData, { spaces: 2 });
+    console.log('[save-catalog-json] Catalog saved to:', catalogPath);
+    return { success: true };
+  } catch (err) {
+    console.error('[save-catalog-json] Error:', err.message);
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('add-catalog-game', async (_event, game) => {
+  const fs = require('fs-extra');
+  const path = require('path');
+  
+  const catalogPath = app.isPackaged 
+    ? path.join(app.getPath('userData'), 'catalog.json')
+    : path.join(__dirname, '..', 'public', 'catalog.json');
+  
+  try {
+    let catalog = [];
+    if (await fs.pathExists(catalogPath)) {
+      catalog = await fs.readJson(catalogPath);
+    }
+    
+    // Check if game with same id already exists
+    if (catalog.find(g => g.id === game.id)) {
+      return { success: false, error: 'Game with this ID already exists' };
+    }
+    
+    catalog.push(game);
+    await fs.writeJson(catalogPath, catalog, { spaces: 2 });
+    console.log('[add-catalog-game] Game added:', game.name);
+    return { success: true };
+  } catch (err) {
+    console.error('[add-catalog-game] Error:', err.message);
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('update-catalog-game', async (_event, gameId, updates) => {
+  const fs = require('fs-extra');
+  const path = require('path');
+  
+  const catalogPath = app.isPackaged 
+    ? path.join(app.getPath('userData'), 'catalog.json')
+    : path.join(__dirname, '..', 'public', 'catalog.json');
+  
+  try {
+    let catalog = [];
+    if (await fs.pathExists(catalogPath)) {
+      catalog = await fs.readJson(catalogPath);
+    }
+    
+    const index = catalog.findIndex(g => g.id === gameId);
+    if (index === -1) {
+      return { success: false, error: 'Game not found' };
+    }
+    
+    catalog[index] = { ...catalog[index], ...updates };
+    await fs.writeJson(catalogPath, catalog, { spaces: 2 });
+    console.log('[update-catalog-game] Game updated:', gameId);
+    return { success: true };
+  } catch (err) {
+    console.error('[update-catalog-game] Error:', err.message);
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('delete-catalog-game', async (_event, gameId) => {
+  const fs = require('fs-extra');
+  const path = require('path');
+  
+  const catalogPath = app.isPackaged 
+    ? path.join(app.getPath('userData'), 'catalog.json')
+    : path.join(__dirname, '..', 'public', 'catalog.json');
+  
+  try {
+    let catalog = [];
+    if (await fs.pathExists(catalogPath)) {
+      catalog = await fs.readJson(catalogPath);
+    }
+    
+    const newCatalog = catalog.filter(g => g.id !== gameId);
+    await fs.writeJson(catalogPath, newCatalog, { spaces: 2 });
+    console.log('[delete-catalog-game] Game deleted:', gameId);
+    return { success: true };
+  } catch (err) {
+    console.error('[delete-catalog-game] Error:', err.message);
+    return { success: false, error: err.message };
+  }
+});
+
 app.whenReady().then(() => {
+  themes.initThemes();
   initDiscordRPC();
   createWindow();
 });
