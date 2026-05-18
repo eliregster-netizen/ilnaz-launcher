@@ -21,8 +21,7 @@ const Catalog = () => {
       try {
         let data;
         
-        // В Electron используем IPC для чтения файла
-        const isElectron = !!window.electron;
+        const isElectron = !!window.electron && !window.__isBrowser;
         
         if (isElectron && window.electron.getCatalogJson) {
           // В Electron читаем через main process
