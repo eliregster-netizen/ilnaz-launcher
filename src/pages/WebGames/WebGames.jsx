@@ -19,7 +19,7 @@ const WebGames = () => {
   useEffect(() => {
     const load = async () => {
       try {
-        const res = await fetch(`${getApiUrl()}/api/webgames`);
+        const res = await fetch(`${getApiUrl()}/webgames`);
         const data = await res.json();
         const list = (data.games || []).filter(g => g.id !== -1 && g.url?.includes('{HTML_URL}'));
         setGames(list);

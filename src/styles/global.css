@@ -414,6 +414,10 @@ body {
   padding: 30px;
 }
 
+.is-browser .main-content {
+  top: 0;
+}
+
 .main-content.no-padding {
   padding: 0;
   overflow: hidden;
@@ -431,6 +435,10 @@ body {
     radial-gradient(circle at 70% 60%, rgba(0, 212, 255, 0.08) 0%, transparent 40%);
   pointer-events: none;
   z-index: -1;
+}
+
+.is-browser .main-content::before {
+  top: 0;
 }
 
 /* Glass effect base */

@@ -243,3 +243,7 @@
   font-size: 11px;
   color: var(--text-muted);
 }
+
+.is-browser .sidebar {
+  top: 0;
+}
