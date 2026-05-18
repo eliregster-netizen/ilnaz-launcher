@@ -8,6 +8,7 @@
     "dev": "concurrently \"vite\" \"electron .\"",
     "dev:full": "concurrently \"vite\" \"electron .\" \"node index.js\"",
     "build": "vite build",
+    "postinstall": "vite build",
     "electron:dev": "wait-on http://localhost:5173 && electron .",
     "electron:build": "npm run build && electron-builder"
   },
@@ -24,7 +25,6 @@
     "concurrently": "^8.2.2",
     "electron": "^28.1.4",
     "electron-builder": "^24.9.1",
-    "vite": "^5.0.11",
     "wait-on": "^7.2.0"
   },
   "dependencies": {
@@ -41,7 +41,8 @@
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.21.2",
     "socket.io": "^4.7.4",
-    "socket.io-client": "^4.7.4"
+    "socket.io-client": "^4.7.4",
+    "vite": "^5.0.11"
   },
   "build": {
     "appId": "com.ilnazgaming.launcher",
