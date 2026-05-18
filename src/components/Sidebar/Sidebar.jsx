@@ -27,6 +27,7 @@ const Sidebar = ({ profile, isOpen, onToggle, onClose }) => {
   const navItems = [
     { path: '/', icon: 'home', label: 'Home' },
     { path: '/catalog', icon: 'catalog', label: 'Каталог' },
+    { path: '/hub', icon: 'hub', label: 'Game Hub' },
     { path: '/webgames', icon: 'webgames', label: 'Веб-игры' },
     { path: '/friends', icon: 'friends', label: 'Друзья' },
     { path: '/chat', icon: 'chat', label: 'Чат' },
@@ -107,6 +108,16 @@ const Sidebar = ({ profile, isOpen, onToggle, onClose }) => {
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
             <circle cx="12" cy="7" r="4" />
+          </svg>
+        );
+      case 'hub':
+        return (
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="12" cy="12" r="3" />
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83l-1.42 1.42a2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33" />
+            <path d="M4.6 15a1.65 1.65 0 0 1-.33 1.82l-.06.06a2 2 0 0 0 0 2.83l1.42 1.42a2 2 0 0 0 2.83 0l.06-.06a1.65 1.65 0 0 1 1.82-.33" />
+            <path d="M4.6 9a1.65 1.65 0 0 1-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83l1.42-1.42a2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9.34 3" />
+            <path d="M19.4 9a1.65 1.65 0 0 0 .33-1.82l.06-.06a2 2 0 0 0 0-2.83l-1.42-1.42a2 2 0 0 0-2.83 0l-.06.06A1.65 1.65 0 0 1 14.66 3" />
           </svg>
         );
       case 'webgames':

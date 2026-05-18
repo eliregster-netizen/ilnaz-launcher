@@ -16,6 +16,10 @@ import { SettingsProvider } from './context/SettingsContext';
 import { MusicProvider } from './context/MusicContext';
 import GlobalPlayer from './components/GlobalPlayer/GlobalPlayer';
 import Catalog from './pages/Catalog/Catalog';
+import Hub from './pages/Hub/Hub';
+import GamePage from './pages/Hub/GamePage';
+import SubmitGame from './pages/Hub/SubmitGame';
+import MyGames from './pages/Hub/MyGames';
 import WebGames from './pages/WebGames/WebGames';
 import CatalogManager from './pages/CatalogManager';
 import { getActiveUser, logout, getUserById, setStatus } from './utils/auth';
@@ -121,6 +125,10 @@ const AppContent = () => {
             <Route path="/music" element={<Music />} />
             <Route path="/catalog" element={<Catalog />} />
             <Route path="/catalog/manager" element={<CatalogManager />} />
+            <Route path="/hub" element={<Hub />} />
+            <Route path="/hub/game/:slug" element={<GamePage />} />
+            <Route path="/hub/submit" element={<SubmitGame />} />
+            <Route path="/hub/my-games" element={<MyGames />} />
             <Route path="/webgames" element={<WebGames />} />
             <Route path="/settings" element={<SettingsPage />} />
           </Routes>

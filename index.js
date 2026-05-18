@@ -50,7 +50,7 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 const MONGO_URI = process.env.MONGO_URI;
 if (!MONGO_URI) { console.error('MONGO_URI not set! Using fallback...'); }
 
-let db, users, friendRequests, conversations, conversationMembers, messages, publicThemes, news;
+let db, users, friendRequests, conversations, conversationMembers, messages, publicThemes, news, hubGames, hubRatings, hubComments, hubLikes;
 
 async function connectDB() {
   if (!MONGO_URI) {
@@ -70,6 +70,10 @@ async function connectDB() {
     music = db.collection('music');
     publicThemes = db.collection('public_themes');
     news = db.collection('news');
+    hubGames = db.collection('hub_games');
+    hubRatings = db.collection('hub_ratings');
+    hubComments = db.collection('hub_comments');
+    hubLikes = db.collection('hub_likes');
     
     // Init GridFS
     initGridFS(db);
@@ -1401,6 +1405,351 @@ app.post('/api/news/:id/attach', authenticateToken, requireOwner, upload.single(
     };
     await news.updateOne({ id: req.params.id }, { $push: { attachments: attachment } });
     res.json({ success: true, attachment });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ============ GAME HUB API ============
+
+function makeGameSlug(title) {
+  return title.replace(/ /g, '-').toLowerCase().replace(/[^a-z0-9-]/g, '').replace(/-+/g, '-').replace(/^-|-$/g, '') || 'game';
+}
+
+async function ensureUniqueSlug(slug) {
+  let candidate = slug;
+  let i = 1;
+  while (await hubGames.findOne({ slug: candidate })) {
+    candidate = `${slug}-${i}`;
+    i++;
+  }
+  return candidate;
+}
+
+// List published games (public)
+app.get('/api/hub/games', async (req, res) => {
+  try {
+    const { search, genre, tag, page = '1', limit = '20', sort = 'newest' } = req.query;
+    const query = { status: 'published' };
+    if (search) {
+      query.$or = [
+        { title: { $regex: search, $options: 'i' } },
+        { shortDescription: { $regex: search, $options: 'i' } },
+        { developerName: { $regex: search, $options: 'i' } },
+      ];
+    }
+    if (genre) query.genre = genre;
+    if (tag) query.tags = tag;
+
+    let sortObj = { createdAt: -1 };
+    if (sort === 'plays') sortObj = { playCount: -1 };
+    else if (sort === 'rating') sortObj = { avgRating: -1, ratingCount: -1 };
+    else if (sort === 'downloads') sortObj = { downloadCount: -1 };
+    else if (sort === 'oldest') sortObj = { createdAt: 1 };
+
+    const total = await hubGames.countDocuments(query);
+    const games = await hubGames.find(query)
+      .sort(sortObj)
+      .skip((parseInt(page) - 1) * parseInt(limit))
+      .limit(parseInt(limit))
+      .toArray();
+
+    res.json({ games, total, page: parseInt(page), pages: Math.ceil(total / parseInt(limit)) });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Get single game by slug (public)
+app.get('/api/hub/games/:slug', async (req, res) => {
+  try {
+    const game = await hubGames.findOne({ slug: req.params.slug });
+    if (!game) return res.status(404).json({ error: 'Game not found' });
+    
+    // If user is authenticated, check if they liked/rated
+    let extra = {};
+    const authHeader = req.headers['authorization'];
+    if (authHeader) {
+      try {
+        const token = authHeader.split(' ')[1];
+        const decoded = jwt.verify(token, JWT_SECRET);
+        const like = await hubLikes.findOne({ gameId: game.id, userId: decoded.userId });
+        extra.isLiked = !!like;
+        const rate = await hubRatings.findOne({ gameId: game.id, userId: decoded.userId });
+        extra.userRating = rate ? rate.rating : null;
+      } catch (_) {}
+    }
+
+    // Get comment count
+    const commentCount = await hubComments.countDocuments({ gameId: game.id });
+    
+    res.json({ game: { ...game, ...extra, commentCount } });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Create game (authenticated)
+app.post('/api/hub/games', authenticateToken, async (req, res) => {
+  try {
+    const { title, description, shortDescription, genre, tags, coverUrl, screenshots, webUrl, downloadUrl } = req.body;
+    if (!title || !description) return res.status(400).json({ error: 'Title and description required' });
+    
+    const user = await getUser(req.userId);
+    if (!user) return res.status(401).json({ error: 'User not found' });
+
+    const slug = await ensureUniqueSlug(makeGameSlug(title));
+    const id = generateId() + generateId();
+
+    const game = {
+      id, title, slug, description,
+      shortDescription: shortDescription || '',
+      genre: genre || 'Other',
+      tags: tags || [],
+      coverUrl: coverUrl || '',
+      screenshots: screenshots || [],
+      webUrl: webUrl || '',
+      downloadUrl: downloadUrl || '',
+      developerId: req.userId,
+      developerName: user.nickname,
+      status: 'pending_review',
+      playCount: 0,
+      downloadCount: 0,
+      avgRating: 0,
+      ratingCount: 0,
+      likeCount: 0,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    await hubGames.insertOne(game);
+    res.json({ success: true, game });
+
+    // Auto-set developer flag on user
+    if (!user.developer) {
+      await users.updateOne({ id: req.userId }, { $set: { developer: true } });
+    }
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Update game (owner only)
+app.put('/api/hub/games/:id', authenticateToken, async (req, res) => {
+  try {
+    const game = await hubGames.findOne({ id: req.params.id });
+    if (!game) return res.status(404).json({ error: 'Game not found' });
+    if (game.developerId !== req.userId) return res.status(403).json({ error: 'Only the developer can edit' });
+
+    const allowed = ['title', 'description', 'shortDescription', 'genre', 'tags', 'coverUrl', 'screenshots', 'webUrl', 'downloadUrl'];
+    const updates = {};
+    for (const field of allowed) {
+      if (req.body[field] !== undefined) updates[field] = req.body[field];
+    }
+    updates.updatedAt = new Date().toISOString();
+    // After edit, reset to pending review (unless admin)
+    const user = await getUser(req.userId);
+    if (user.role !== 'admin' && user.role !== 'owner') {
+      updates.status = 'pending_review';
+    }
+
+    // If title changed, regenerate slug
+    if (req.body.title && req.body.title !== game.title) {
+      updates.slug = await ensureUniqueSlug(makeGameSlug(req.body.title));
+    }
+
+    await hubGames.updateOne({ id: req.params.id }, { $set: updates });
+    const updated = await hubGames.findOne({ id: req.params.id });
+    res.json({ success: true, game: updated });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Delete game (author or admin)
+app.delete('/api/hub/games/:id', authenticateToken, async (req, res) => {
+  try {
+    const game = await hubGames.findOne({ id: req.params.id });
+    if (!game) return res.status(404).json({ error: 'Game not found' });
+    
+    const user = await getUser(req.userId);
+    if (game.developerId !== req.userId && user.role !== 'admin' && user.role !== 'owner') {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    await hubGames.deleteOne({ id: req.params.id });
+    await hubRatings.deleteMany({ gameId: req.params.id });
+    await hubComments.deleteMany({ gameId: req.params.id });
+    await hubLikes.deleteMany({ gameId: req.params.id });
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Increment play count
+app.post('/api/hub/games/:id/play', authenticateToken, async (req, res) => {
+  try {
+    await hubGames.updateOne({ id: req.params.id }, { $inc: { playCount: 1 } });
+    const game = await hubGames.findOne({ id: req.params.id });
+    res.json({ success: true, playCount: game?.playCount || 0 });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Increment download count
+app.post('/api/hub/games/:id/download', authenticateToken, async (req, res) => {
+  try {
+    await hubGames.updateOne({ id: req.params.id }, { $inc: { downloadCount: 1 } });
+    const game = await hubGames.findOne({ id: req.params.id });
+    res.json({ success: true, downloadCount: game?.downloadCount || 0 });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Rate a game (1-5)
+app.post('/api/hub/games/:id/rate', authenticateToken, async (req, res) => {
+  try {
+    const { rating } = req.body;
+    if (!rating || rating < 1 || rating > 5) return res.status(400).json({ error: 'Rating must be 1-5' });
+    
+    const game = await hubGames.findOne({ id: req.params.id });
+    if (!game) return res.status(404).json({ error: 'Game not found' });
+    if (game.developerId === req.userId) return res.status(400).json({ error: 'Cannot rate your own game' });
+
+    const existing = await hubRatings.findOne({ gameId: req.params.id, userId: req.userId });
+    if (existing) {
+      await hubRatings.updateOne({ _id: existing._id }, { $set: { rating, updatedAt: new Date().toISOString() } });
+    } else {
+      await hubRatings.insertOne({ gameId: req.params.id, userId: req.userId, rating, createdAt: new Date().toISOString() });
+    }
+
+    // Recalculate average
+    const ratings = await hubRatings.find({ gameId: req.params.id }).toArray();
+    const total = ratings.reduce((sum, r) => sum + r.rating, 0);
+    const avg = total / ratings.length;
+    await hubGames.updateOne({ id: req.params.id }, { $set: { avgRating: Math.round(avg * 10) / 10, ratingCount: ratings.length } });
+    
+    res.json({ success: true, avgRating: Math.round(avg * 10) / 10, ratingCount: ratings.length, userRating: rating });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Get comments for a game
+app.get('/api/hub/games/:id/comments', async (req, res) => {
+  try {
+    const comments = await hubComments.find({ gameId: req.params.id }).sort({ createdAt: -1 }).limit(50).toArray();
+    const enriched = [];
+    for (const c of comments) {
+      const u = await getUser(c.userId);
+      enriched.push({
+        ...c,
+        nickname: u?.nickname || 'Unknown',
+        username: u?.username || 'unknown',
+        avatar: u?.avatar || null,
+      });
+    }
+    res.json(enriched);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Post a comment
+app.post('/api/hub/games/:id/comments', authenticateToken, async (req, res) => {
+  try {
+    const { content } = req.body;
+    if (!content || !content.trim()) return res.status(400).json({ error: 'Comment content required' });
+
+    const game = await hubGames.findOne({ id: req.params.id });
+    if (!game) return res.status(404).json({ error: 'Game not found' });
+    // Only allow comments on published games
+    if (game.status !== 'published') return res.status(400).json({ error: 'Cannot comment on unpublished games' });
+
+    const user = await getUser(req.userId);
+    const comment = {
+      id: generateId() + generateId(),
+      gameId: req.params.id,
+      userId: req.userId,
+      content: content.trim(),
+      createdAt: new Date().toISOString(),
+      nickname: user?.nickname || 'Unknown',
+      username: user?.username || 'unknown',
+      avatar: user?.avatar || null,
+    };
+    await hubComments.insertOne(comment);
+    res.json({ success: true, comment });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Delete a comment
+app.delete('/api/hub/games/:id/comments/:commentId', authenticateToken, async (req, res) => {
+  try {
+    const comment = await hubComments.findOne({ id: req.params.commentId, gameId: req.params.id });
+    if (!comment) return res.status(404).json({ error: 'Comment not found' });
+    
+    const user = await getUser(req.userId);
+    if (comment.userId !== req.userId && user.role !== 'admin' && user.role !== 'owner') {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    await hubComments.deleteOne({ id: req.params.commentId });
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Toggle like
+app.post('/api/hub/games/:id/like', authenticateToken, async (req, res) => {
+  try {
+    const existing = await hubLikes.findOne({ gameId: req.params.id, userId: req.userId });
+    if (existing) {
+      await hubLikes.deleteOne({ _id: existing._id });
+      await hubGames.updateOne({ id: req.params.id }, { $inc: { likeCount: -1 } });
+      const game = await hubGames.findOne({ id: req.params.id });
+      return res.json({ success: true, liked: false, likeCount: game?.likeCount || 0 });
+    } else {
+      await hubLikes.insertOne({ gameId: req.params.id, userId: req.userId, createdAt: new Date().toISOString() });
+      await hubGames.updateOne({ id: req.params.id }, { $inc: { likeCount: 1 } });
+      const game = await hubGames.findOne({ id: req.params.id });
+      return res.json({ success: true, liked: true, likeCount: game?.likeCount || 0 });
+    }
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Get my games (authenticated)
+app.get('/api/hub/my-games', authenticateToken, async (req, res) => {
+  try {
+    const games = await hubGames.find({ developerId: req.userId }).sort({ createdAt: -1 }).toArray();
+    res.json(games);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Get user's published games (public)
+app.get('/api/hub/users/:userId/games', async (req, res) => {
+  try {
+    const games = await hubGames.find({ developerId: req.params.userId, status: 'published' }).sort({ createdAt: -1 }).toArray();
+    res.json(games);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Approve a game (admin only)
+app.put('/api/hub/games/:id/approve', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const game = await hubGames.findOne({ id: req.params.id });
+    if (!game) return res.status(404).json({ error: 'Game not found' });
+    if (game.status !== 'pending_review') return res.status(400).json({ error: 'Game is not pending review' });
+    await hubGames.updateOne({ id: req.params.id }, { $set: { status: 'published', updatedAt: new Date().toISOString() } });
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Reject a game (admin only)
+app.put('/api/hub/games/:id/reject', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const game = await hubGames.findOne({ id: req.params.id });
+    if (!game) return res.status(404).json({ error: 'Game not found' });
+    if (game.status !== 'pending_review') return res.status(400).json({ error: 'Game is not pending review' });
+    await hubGames.updateOne({ id: req.params.id }, { $set: { status: 'rejected', updatedAt: new Date().toISOString() } });
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Get pending games (admin only)
+app.get('/api/hub/pending', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const games = await hubGames.find({ status: 'pending_review' }).sort({ createdAt: -1 }).toArray();
+    res.json(games);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Get all distinct genres
+app.get('/api/hub/genres', async (_req, res) => {
+  try {
+    const genres = await hubGames.distinct('genre', { status: 'published' });
+    res.json(genres.sort());
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
