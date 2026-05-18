@@ -112,17 +112,19 @@ const Admin = () => {
           <h1 className="page-title">Админ-панель</h1>
         </div>
         <div className="admin-badge">
-          <span className="admin-icon">👑</span>
+          <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14" style={{ color: 'var(--warning)' }}><path d="M2 19h20v3H2v-3zM3.3 5.5l4.7 3.5L12 2l4 7 4.7-3.5L19 16H5L3.3 5.5z"/></svg>
           {currentUser?.username}
         </div>
       </div>
 
       <div className="admin-tabs glass">
         <button className={`admin-tab ${tab === 'users' ? 'active' : ''}`} onClick={() => switchTab('users')}>
-          👥 Пользователи
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          Пользователи
         </button>
         <button className={`admin-tab ${tab === 'hub' ? 'active' : ''}`} onClick={() => switchTab('hub')}>
-          🎮 Game Hub {pendingGames.length > 0 && <span className="pending-badge">{pendingGames.length}</span>}
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M12 12m-3 0a3 3 0 1 0 6 0a3 3 0 1 0-6 0"/><path d="M7 18v2M17 18v2"/></svg>
+          Game Hub {pendingGames.length > 0 && <span className="pending-badge">{pendingGames.length}</span>}
         </button>
       </div>
 
@@ -219,7 +221,13 @@ const Admin = () => {
                         </button>
                         <button className={`action-btn-small ${user.banned ? 'unban' : 'ban'}`}
                           onClick={() => handleBan(user.id, user.banned)}
-                          title={user.banned ? 'Разбанить' : 'Забанить'}>{user.banned ? '🔓' : '🔒'}</button>
+                          title={user.banned ? 'Разбанить' : 'Забанить'}>
+                          {user.banned ? (
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                          ) : (
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/><circle cx="12" cy="16" r="1"/></svg>
+                          )}
+                        </button>
                         <button className="action-btn-small delete"
                           onClick={() => handleDelete(user.id)} title="Удалить"
                           disabled={user.id === currentUser?.id}>
@@ -249,7 +257,11 @@ const Admin = () => {
               {pendingGames.map(game => (
                 <div key={game.id} className="pending-game-card">
                   <div className="pending-game-cover">
-                    {game.coverUrl ? <img src={game.coverUrl} alt="" /> : <div className="no-cover">🎮</div>}
+                    {game.coverUrl ? <img src={game.coverUrl} alt="" /> : (
+                      <div className="no-cover">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" width="24" height="24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+                      </div>
+                    )}
                   </div>
                   <div className="pending-game-info">
                     <div className="pending-game-title">{game.title}</div>
@@ -264,10 +276,10 @@ const Admin = () => {
                     </div>
                     <div className="pending-game-actions">
                       <button className="hub-btn primary small" onClick={async () => { await approveGame(game.id); loadPending(); }}>
-                        ✅ Одобрить
+                        Одобрить
                       </button>
                       <button className="hub-btn outline small" onClick={async () => { await rejectGame(game.id); loadPending(); }} style={{ color: 'var(--danger)' }}>
-                        ❌ Отклонить
+                        Отклонить
                       </button>
                     </div>
                   </div>
