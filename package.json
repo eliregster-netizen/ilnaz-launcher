@@ -21,13 +21,13 @@
   "author": "ILNAZ GAMING",
   "license": "MIT",
   "devDependencies": {
-    "@vitejs/plugin-react": "^4.2.1",
     "concurrently": "^8.2.2",
     "electron": "^28.1.4",
     "electron-builder": "^24.9.1",
     "wait-on": "^7.2.0"
   },
   "dependencies": {
+    "@vitejs/plugin-react": "^4.2.1",
     "adm-zip": "^0.5.17",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.5",
