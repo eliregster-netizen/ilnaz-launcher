@@ -150,7 +150,7 @@ app.get('/api/webgames', async (_req, res) => {
   }
 });
 
-// Serve web game via iframe wrapper
+// Proxy web game from CDN (fixes content-type: text/plain issue)
 app.get('/webgame/:slug', async (req, res) => {
   try {
     const zones = await getZones();
@@ -161,42 +161,14 @@ app.get('/webgame/:slug', async (req, res) => {
     if (game.url && game.url.startsWith('http') && !game.url.includes(htmlURL)) {
       return res.redirect(301, game.url);
     }
-    const html = `<!DOCTYPE html>
-<html lang="ru">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${game.name} — ILNAZ GAMING LAUNCHER</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: #000; overflow: hidden; height: 100vh; }
-    .webgame-toolbar {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 6px 16px; background: #111; border-bottom: 1px solid #333;
-      font-family: sans-serif; font-size: 13px; color: #aaa; height: 40px;
-    }
-    .webgame-toolbar a { color: #7b2ff7; text-decoration: none; }
-    .webgame-toolbar a:hover { text-decoration: underline; }
-    .webgame-toolbar .close-btn {
-      background: none; border: none; color: #aaa; cursor: pointer;
-      font-size: 20px; padding: 0 8px;
-    }
-    .webgame-toolbar .close-btn:hover { color: #ff4466; }
-    iframe {
-      width: 100%; height: calc(100vh - 40px); border: none;
-      background: #000;
-    }
-  </style>
-</head>
-<body>
-  <div class="webgame-toolbar">
-    <span>${game.name}</span>
-    <a href="/" target="_blank">ILNAZ GAMING LAUNCHER</a>
-    <button class="close-btn" onclick="window.close()">×</button>
-  </div>
-  <iframe src="${game.url}" allowfullscreen allow="autoplay; fullscreen"></iframe>
-</body>
-</html>`;
+    // Proxy the game HTML from CDN
+    const gameRes = await fetch(game.url + '?t=' + Date.now());
+    if (!gameRes.ok) return res.status(502).send('Failed to load game from CDN');
+    let html = await gameRes.text();
+    // Inject <base> tag for relative asset paths
+    const baseURL = game.url.substring(0, game.url.lastIndexOf('/') + 1);
+    html = html.replace('<head>', `<head><base href="${baseURL}">`);
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.send(html);
   } catch (err) {
     res.status(500).send('Error loading game: ' + err.message);
