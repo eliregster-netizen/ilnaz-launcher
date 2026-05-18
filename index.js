@@ -50,7 +50,7 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 const MONGO_URI = process.env.MONGO_URI;
 if (!MONGO_URI) { console.error('MONGO_URI not set! Using fallback...'); }
 
-let db, users, friendRequests, conversations, conversationMembers, messages, publicThemes;
+let db, users, friendRequests, conversations, conversationMembers, messages, publicThemes, news;
 
 async function connectDB() {
   if (!MONGO_URI) {
@@ -69,6 +69,7 @@ async function connectDB() {
     playlists = db.collection('playlists');
     music = db.collection('music');
     publicThemes = db.collection('public_themes');
+    news = db.collection('news');
     
     // Init GridFS
     initGridFS(db);
@@ -1317,6 +1318,89 @@ app.get('/api/playlists/:id/play-count', async (req, res) => {
     }
 
     res.json({ playCount: totalPlays });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// News API
+async function requireOwner(req, res, next) {
+  const user = await users.findOne({ id: req.userId });
+  if (!user || user.role !== 'owner') return res.status(403).json({ error: 'Only owner can do this' });
+  next();
+}
+
+// GET /api/news — public, everyone can read
+app.get('/api/news', async (_req, res) => {
+  try {
+    if (!news) return res.json([]);
+    const items = await news.find().sort({ createdAt: -1 }).toArray();
+    res.json(items);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// POST /api/news — owner only
+app.post('/api/news', authenticateToken, requireOwner, async (req, res) => {
+  try {
+    const { title, content, attachments } = req.body;
+    if (!title || !content) return res.status(400).json({ error: 'Title and content required' });
+    const item = {
+      id: generateId(),
+      title,
+      content,
+      authorId: req.userId,
+      attachments: attachments || [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    await news.insertOne(item);
+    res.json({ success: true, item });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// PUT /api/news/:id — owner only
+app.put('/api/news/:id', authenticateToken, requireOwner, async (req, res) => {
+  try {
+    const { title, content, attachments } = req.body;
+    const updates = { updatedAt: new Date().toISOString() };
+    if (title !== undefined) updates.title = title;
+    if (content !== undefined) updates.content = content;
+    if (attachments !== undefined) updates.attachments = attachments;
+    await news.updateOne({ id: req.params.id }, { $set: updates });
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// DELETE /api/news/:id — owner only
+app.delete('/api/news/:id', authenticateToken, requireOwner, async (req, res) => {
+  try {
+    await news.deleteOne({ id: req.params.id });
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Upload attachment for news (owner only, uses existing GridFS + multer)
+app.post('/api/news/:id/attach', authenticateToken, requireOwner, upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+    const item = await news.findOne({ id: req.params.id });
+    if (!item) return res.status(404).json({ error: 'News not found' });
+    const filename = `${crypto.randomBytes(8).toString('hex')}_${req.file.originalname}`;
+    const uploadStream = gfsBucket.openUploadStream(filename, {
+      contentType: req.file.mimetype,
+      metadata: { originalName: req.file.originalname, type: 'news_attachment', newsId: req.params.id }
+    });
+    uploadStream.end(req.file.buffer);
+    await new Promise((resolve, reject) => {
+      uploadStream.on('finish', resolve);
+      uploadStream.on('error', reject);
+    });
+    const attachment = {
+      filename: req.file.originalname,
+      url: `/uploads/covers/${filename}`,
+      size: req.file.size,
+      mimetype: req.file.mimetype,
+    };
+    await news.updateOne({ id: req.params.id }, { $push: { attachments: attachment } });
+    res.json({ success: true, attachment });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 

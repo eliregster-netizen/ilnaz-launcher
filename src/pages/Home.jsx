@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import GameCard from '../components/GameCard/GameCard';
 import { useTheme } from '../context/ThemeContext';
+import NewsSection from '../components/NewsSection/NewsSection';
 import './Home.css';
 
 const Home = ({ profile }) => {
@@ -87,6 +88,8 @@ const Home = ({ profile }) => {
           </div>
         </div>
       </div>
+
+      <NewsSection />
     </div>
   );
 
