@@ -150,24 +150,62 @@ app.get('/api/webgames', async (_req, res) => {
   }
 });
 
-// Proxy web game from CDN (fixes content-type: text/plain issue)
+const MIME_TYPES = {
+  '.js': 'text/javascript', '.css': 'text/css', '.html': 'text/html', '.htm': 'text/html',
+  '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif',
+  '.svg': 'image/svg+xml', '.webp': 'image/webp', '.ico': 'image/x-icon',
+  '.json': 'application/json', '.wasm': 'application/wasm',
+  '.mp3': 'audio/mpeg', '.wav': 'audio/wav', '.ogg': 'audio/ogg',
+  '.mp4': 'video/mp4', '.webm': 'video/webm',
+  '.woff': 'font/woff', '.woff2': 'font/woff2', '.ttf': 'font/ttf', '.otf': 'font/otf',
+  '.map': 'application/json',
+};
+
+// Proxy game assets with correct MIME type
+app.get('/webgame-asset/:slug/*', async (req, res) => {
+  try {
+    const zones = await getZones();
+    const game = zones.find(z => z.slug === req.params.slug);
+    if (!game) return res.status(404).send('Game not found');
+    resolveGameURLs(game);
+    const baseURL = game.url.substring(0, game.url.lastIndexOf('/') + 1);
+    const assetPath = req.params[0];
+    const assetURL = baseURL + assetPath;
+    const ext = '.' + assetPath.split('.').pop().toLowerCase().split('?')[0];
+    const assetRes = await fetch(assetURL);
+    if (!assetRes.ok) return res.status(502).send('Failed to load asset');
+    const buffer = Buffer.from(await assetRes.arrayBuffer());
+    res.setHeader('Content-Type', MIME_TYPES[ext] || 'application/octet-stream');
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    res.send(buffer);
+  } catch (err) {
+    res.status(500).send('Asset error: ' + err.message);
+  }
+});
+
+// Proxy web game from CDN with correct MIME and no ads
 app.get('/webgame/:slug', async (req, res) => {
   try {
     const zones = await getZones();
     const game = zones.find(z => z.slug === req.params.slug);
     if (!game) return res.status(404).send('Game not found');
     resolveGameURLs(game);
-    // external link like Discord — redirect
     if (game.url && game.url.startsWith('http') && !game.url.includes(htmlURL)) {
       return res.redirect(301, game.url);
     }
-    // Proxy the game HTML from CDN
     const gameRes = await fetch(game.url + '?t=' + Date.now());
     if (!gameRes.ok) return res.status(502).send('Failed to load game from CDN');
     let html = await gameRes.text();
-    // Inject <base> tag for relative asset paths
+    // Rewrite <base> to proxy all assets through our server with correct MIME
     const baseURL = game.url.substring(0, game.url.lastIndexOf('/') + 1);
-    html = html.replace('<head>', `<head><base href="${baseURL}">`);
+    html = html.replace('<head>', `<head><base href="/webgame-asset/${req.params.slug}/">`);
+    // Strip known ad scripts
+    html = html.replace(/<script[^>]*src=["'][^"']*ads?[^"']*["'][^>]*><\/script>/gi, '');
+    html = html.replace(/<script[^>]*src=["'][^"']*(doubleclick|googlesyndication|google-analytics|googletagmanager|pagead2)[^"']*["'][^>]*><\/script>/gi, '');
+    html = html.replace(/<script[^>]*src=["'][^"']*cdn\.r9x\.in[^"']*["'][^>]*><\/script>/gi, '');
+    html = html.replace(/<ins[^>]*class=["']adsbygoogle["'][^>]*>.*?<\/ins>/gis, '');
+    // Inject CSS for full-window game display
+    html = html.replace('</head>', '<style>html,body{width:100%;height:100%;margin:0;padding:0;overflow:hidden}canvas{display:block}</style></head>');
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.send(html);
   } catch (err) {
