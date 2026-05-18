@@ -162,14 +162,14 @@ const MIME_TYPES = {
 };
 
 // Proxy game assets with correct MIME type
-app.get('/webgame-asset/:slug/*', async (req, res) => {
+app.get('/webgame-asset/:slug/{*path}', async (req, res) => {
   try {
     const zones = await getZones();
     const game = zones.find(z => z.slug === req.params.slug);
     if (!game) return res.status(404).send('Game not found');
     resolveGameURLs(game);
     const baseURL = game.url.substring(0, game.url.lastIndexOf('/') + 1);
-    const assetPath = req.params[0];
+    const assetPath = req.params.path;
     const assetURL = baseURL + assetPath;
     const ext = '.' + assetPath.split('.').pop().toLowerCase().split('?')[0];
     const assetRes = await fetch(assetURL);
